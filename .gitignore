@@ -10,3 +10,4 @@
 .positai
 *.gpkg
 data/
+_site/ 
