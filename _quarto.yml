@@ -6,8 +6,6 @@ website:
   title: "Nutchanok Saitin - Portfolio"
   navbar:
     right:
-      - text: "Home"
-        file: projects.qmd
       - text: "About Me"
         file: about.qmd
       - icon: linkedin
