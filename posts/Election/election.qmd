@@ -1,0 +1,561 @@
+---
+title: "Election Data Analysis: Independent Candidate Support in Australia"
+toc: true
+author: "Nutchanok Saitin" 
+editor: visual
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE) 
+```
+
+# Project Background
+
+This project analyses changes in support for independent and minor party candidates between the 2019 and 2022 Australian federal elections.
+
+## Independent Candidate Support Analysis
+
+### Data Collection and Preparation
+
+The 2019 and 2022 preferential vote data by division were combined into a single dataset to support year-to-year comparison.
+
+```{r}
+#| message: false
+
+# Load necessary libraries 
+library(tidyverse)
+library(here)
+library(janitor)
+
+# Download preferential votes by division for year 2019 from AEC website, standardize column names and make a new variable to indicate election year.
+vote2019 <- read_csv("https://results.aec.gov.au/24310/Website/Downloads/HouseDopByDivisionDownload-24310.csv", skip = 1) |>
+  clean_names() |>
+  mutate(election_year = 2019)
+
+# Repeat above step for year 2022
+vote2022 <- read_csv("https://results.aec.gov.au/27966/Website/Downloads/HouseDopByDivisionDownload-27966.csv", skip = 1) |> 
+  clean_names() |>
+  mutate(election_year = 2022)
+
+# Combine into a single data set
+vote2019n2022 <- bind_rows(vote2019, vote2022)
+```
+
+### Independent Seat Changes from 2019 to 2022
+
+```{r}
+# filter winners of each year election
+winners <- vote2019n2022 |> 
+  filter(elected == "Y" & count_number == 0 & calculation_type == "Preference Count")
+  
+# Illustrate the divisions where independents won in each year
+ind_win <- winners |>
+  filter(party_ab == "IND") |>
+  select(election_year, division_nm, party_ab, elected) |>
+
+  # Change to wide format to show result and replace NA value with "N"
+  pivot_wider(names_from = election_year, values_from = elected ) |> 
+  replace_na(list(`2019` = "N"))
+
+# Show result 
+print(ind_win)
+```
+
+Comparing 2022 to 2019, the results show that divisions were held for independents are Warringah, Clark, and Indi, while the new electoral wins for independents are Fowler, Mackellar, North Sydney, Wentworth, Goldstein, Kooyong, and Curtin.
+
+### Previous Party Control of Independent-Won Seats
+
+```{r}
+previous_win <- winners |>
+  # Filter name of divisions where independents won in 2022
+  filter(division_nm %in% ind_win$division_nm) |>
+  
+  # Illustrate parties who won in selected divisions for each year
+  select(election_year, division_nm, party_nm) |>
+  
+  # Change to wide format to show result and arrange name in 2019 column 
+  pivot_wider(names_from = election_year, values_from = party_nm) |>
+  arrange(`2019`)
+
+# Show result
+print(previous_win)
+```
+
+Parties previously held the independent seats won in 2022 beside themselves are Liberal and Labor.
+
+### First-Round Support for Independents and Minor Parties
+
+```{r}
+round1_vote_minor <- vote2019n2022 |>
+  # Filter preferences in the first round and not a major parties
+  filter(count_number == "0") |>
+  filter(!party_ab %in% c("ALP", "LP", "NP", "LNP"))
+
+# Process round1_vote_minor to create sample of raw voter counts in first round in each electorates, yearly
+round1_minor_prefcount <- round1_vote_minor |>
+  filter(calculation_type == "Preference Count") |> 
+  group_by(election_year, division_nm) |>
+  summarise(preferencecount = sum(calculation_value), .groups = "drop") |>
+  arrange(division_nm)
+
+# Show sample of raw voter counts
+head(round1_minor_prefcount, n = 10)
+
+# Process round1_vote_minor to create sample of percentage of votes in first round in each electorates, yearly
+round1_minor_prefper <- round1_vote_minor |>
+  filter(calculation_type == "Preference Percent") |> 
+  group_by(election_year, division_nm) |>
+  summarise(preferenceper = sum(calculation_value), .groups = "drop") |>
+  arrange(division_nm)
+
+# Show sample of percentage of votes
+head(round1_minor_prefper, n = 10)
+```
+
+From sample of the raw voter counts and the percentage of votes there are pros and cons as follows:
+
+**raw voter counts**
+
+- Pros
+  - Shows actual number of votes in each electorate
+  - Reflects real size of population
+- Cons
+  - Hard to compare divisions with significant differences in population size
+  - It could lead to misinterpretation, as the high number of vote counts might represnet only a small portion in that electorate
+
+**percentage of votes**
+
+- Pros
+  - Standardises the data, making it comparable across divisions regardless of population size
+  - Makes it easier to analyse the supporting trend across years
+- Cons
+  - It masks actual number of votes
+  - A small change in votes within an electorate with a small population size can lead to significant percentage change, which may misleadingly suggest a large increase in support.
+
+### Change in First-Round Vote Share from 2019 to 2022
+
+```{r}
+# Calculate change in percentage of votes for first round votes between 2019 and 2022
+round1_minor_change <- round1_minor_prefper|>
+  pivot_wider(names_from = election_year, values_from = preferenceper) |>
+  mutate(across(everything(), ~ replace_na(., 0))) |>
+  mutate(percent_chg = `2022` - `2019`) |>
+  
+  # Arrange change from highest to lowest for further analysis 
+  arrange(desc(`percent_chg`))
+
+# Statistical summary of percentage of votes
+summary(round1_minor_change)
+
+# Top 10 highest change for percentage of votes
+head(round1_minor_change, n = 10)
+```
+
+The change in first round votes between 2019 and 2022 elections shows that independents and minor parties gained more support in most electorates as indicated by the positive value in average percentage change.
+
+The most significant shifts occurred in electorates like Fowler, Goldstein, and Mackellar, suggesting that significant increases directly contributed to independents winning these seats from major parties. Thus, this indicates a shift in voter behavior that could continue in future elections.
+
+### Distribution of Vote Share Changes
+
+```{r}
+ggplot(round1_minor_change, aes(x = percent_chg)) +
+  geom_histogram(binwidth = 1.65, color = "royalblue", fill = "lightblue") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "red") +
+  labs(
+    title = "Change in First Round Votes for Independents/Minor Parties 2019 vs 2022",
+    subtitle = "Positive values indicate increased support for independents and minor parties",
+    x = "Change in Percentage",
+    y = "Number of Divisions")
+```
+
+### Geographic Patterns in Voter Support
+
+```{r}
+# Load necessary library to read xlsx format
+library(readxl)
+
+# Read in demographic classification for year 2019 election and standardize column names
+democlass_2019 <- read_excel(here("data", "01-demographic-classification-as-at-1-january-2019.xlsx"), skip = 3) |>
+  clean_names() |>
+  
+  # Rename to combine with round1_minor_prefper data set
+  rename(division_nm = electoral_division,
+         demograph_class_2019 = demographic_classification) |>
+  
+  # Remove irrelevant variable
+  select(-state_or_territory)
+
+# Read in demographic classification for year 2022 election and repeat above cleaning steps
+democlass_2022 <- read_excel(here("data", "04-demographic-classification-as-at-2-august-2021.xlsx"), skip = 3) |>
+  clean_names() |>
+  rename(division_nm = electoral_division,
+         demograph_class_2022 = demographic_classification) |>
+  select(-state_or_territory)
+
+# Combine 3 data sets which are percentage of votes in first round and demographic classification of each year 
+geo_pat <- round1_minor_prefper |>
+  full_join(democlass_2019, by = "division_nm" ) |>
+  full_join(democlass_2022, by = "division_nm" ) |>
+  
+  # Match demographic classification for each year 
+  mutate(demographic_class = case_when(
+    election_year == 2019 ~ demograph_class_2019,
+    election_year == 2022 ~ demograph_class_2022)) |>
+  
+   # Remove irrelevant variables
+  select(-`demograph_class_2019`, -`demograph_class_2022`)
+
+# Visualise to examine distribution of percentage of votes in each area comparing year 2019 and 2022
+ggplot(geo_pat, aes(x = demographic_class,
+                    y = preferenceper,
+                    fill = demographic_class)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_wrap(~election_year) +
+  scale_y_continuous(breaks=seq(0,100,by=5)) +
+  labs(
+    x = "Demographic Classification",
+    y = "Preference Percentage (%)",
+    fill = "Demographic Classification")
+```
+
+Overall, a consistent geographic pattern emerges where all area types (Inner Metropolitan, Outer Metropolitan, Provincial, and Rural) showed increased support for independents and minor parties in 2022 for the first round votes. However, the magnitude of change varied across each geography.
+
+- Inner Metropolitan areas saw largest increased support to independents and minor parties with uneven change across divisions.
+
+- Outer Metropolitan and Provincial areas showed similar increases with consistent voting patterns.
+
+- Rural areas maintained the highest overall median support in both elections
+
+These patterns suggest that voters in all areas have shifted their preferences toward independents and minor parties, especially in urban centers, where voters showed dramatically uneven change in support for independents and minor parties in the 2022 election.
+
+### Key Findings and Political Implications
+
+**Key findings:**
+
+1.  Seat changes:
+    - Independents secured 10 seats in 2022, an increase of 7 seats from 2019.
+    - Seven of these seats were previously held by Labor and Liberal parties (Major parties).
+2.  Voting trend from first round voting:
+    - The average first-round preference for independents and minor parties increased by 6.4%.
+    - About 88% of all divisions showed increased support for independents and minor parties.
+3.  Geographic pattern:
+    - All area types showed increasing of support for independents and minor parties in 2022.
+    - Inner Metropolitan areas saw the largest increases, but with high variability, while other areas showed more consistent growth in support for independents and minor parties.
+    - Rural areas maintained the highest overall support in both elections.
+
+**Implication**
+
+As the voting trend has shifted toward independents and minor parties in recent years, coupled with increased in donations to independents after electoral reform limiting donations and expenditures passed parliament, these factors lead to a high possibility that independents or minor parties will win more seats in the upcoming election.
+
+Moreover, the increased support for independents and minor parties across all geographic regions suggests that this is not just happening to metropolitan areas but is a broader electoral trend, especially in Inner Metropolitan areas where major party seats have become more vulnerable.
+
+Therefore, maintaining seats for major parties could be done through developing their strategies for vulnerable seats in Inner Metropolitan areas and strengthening their connection in local areas which are at-risk electorates.
+
+## North Sydney Electorate Case Study
+
+### Demographic Profile of North Sydney
+
+```{r}
+#| message: false
+
+# Steps to read in and tidy all G17 tables (Total Personal Income (Weekly) by Age by Sex) from ABS Census data.
+# Using CED structure as the division name from election data can be matched with code name.
+
+# Set the path of census data 
+census_path <- here::here("data/2021_GCP_all_for_NSW_short-header/2021 Census GCP All Geographies for NSW")
+
+# Create full paths for G17 tables from A to C 
+CED_paths <- glue::glue(census_path, "/{geo}/NSW/2021Census_G17{alpha}_NSW_{geo}.csv",
+                        geo = "CED", alpha = c("A", "B", "C"))
+
+# Read in each table 
+CED_G17A <- read_csv(CED_paths[1])
+CED_G17B <- read_csv(CED_paths[2])
+CED_G17C <- read_csv(CED_paths[3])
+
+# Combine data 
+CED_G17 <- bind_rows(CED_G17A, CED_G17B, CED_G17C) 
+
+# For analysis purpose
+# Change data to long format 
+CED_G17_long <- CED_G17 |>
+  
+  # Skip 1 column (area code), pivot variables in wide format to category and pivot value to count column 
+  pivot_longer(cols = -1, names_to = "category",
+               values_to = "count") |>
+  
+  # Remove obs which are irrelevant (Total count, Personal income not stated) from category
+  filter(!str_detect(string = category, pattern = "Tot"),
+         !str_detect(category, "PI_NS")) |>
+  
+  # Make the variable names consistent and easier to read
+  mutate(
+    category = str_replace(category, "Neg_Nil_income", "-Inf_0"),
+    category = str_replace(category, "Neg_Nil_incme", "-Inf_0"),
+    category = str_replace(category, "Negtve_Nil_incme", "-Inf_0"),
+    category = str_replace(category, "more", "Inf"),
+    category = str_replace(category, "85ov", "85_110_yrs"),
+    category = str_replace(category, "85_yrs_ovr", "85_110_yrs"))
+
+# Make it to tidy format
+CED_G17_tidy <- CED_G17_long |>
+  
+  # Remove _yrs from category 
+  mutate(category = str_remove(category, "_yrs")) |>
+  
+  # Split the category column by _ and name them to sex, income_min, income_max, age_min, age_max
+  separate_wider_delim(cols = category, delim = "_",
+                       names = c("sex", "income_min", "income_max", "age_min", "age_max")) |>
+  
+  # Rejoin income min and max as a income variable, and same for age
+  unite("income", c(income_min, income_max), remove = FALSE) |>
+  unite("age", c(age_min, age_max), remove = FALSE) |>
+  
+  # Remove where count is NA
+  drop_na(count) |>
+  
+  # Standardize column names
+  clean_names()
+
+# Read in geographic description for CED structure from metadata to select "North Sydney" electorate for analysis
+CED_name <- read_excel(here("data/2021_GCP_all_for_NSW_short-header/Metadata/2021Census_geog_desc_1st_2nd_3rd_release.xlsx"), 
+                       sheet = "2021_ASGS_Non_ABS_Structures") |>
+  
+  # Standardize column names
+  clean_names() |>
+  
+  # filter for CED
+  filter(asgs_structure == "CED") |>
+  
+  # select relevant variables
+  select(census_code_2021, census_name_2021) |>
+  
+  # rename to match data with G17 tidy table
+  rename(ced_code_2021 = census_code_2021)
+
+# Match CED_name to CED G17_tidy table 
+CED_G17_analysis <- left_join(CED_G17_tidy, CED_name, by = "ced_code_2021")
+
+# Set up income variable as a factor to visualise with proper order
+CED_G17_analysis$income <- factor(
+  CED_G17_analysis$income,
+  levels = c(
+    "-Inf_0", "1_149", "150_299", "300_399", "400_499", "500_649",
+    "650_799", "800_999", "1000_1249", "1250_1499", "1500_1749",
+    "1750_1999", "2000_2999", "3000_3499", "3500_Inf"))
+
+# Visualise age, income and gender distribution of North Sydney division
+CED_G17_analysis |>
+  
+  # filter for North Sydney electorate and filter out where sex = "P"
+  filter(census_name_2021 == "North Sydney", sex != "P") |>
+  
+  # Visualise distribution in each income range by age and gender
+  ggplot(aes(x = age, y = count, fill = sex)) +
+  geom_col(position = "dodge") +
+  facet_wrap(~income) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+  ggtitle("Age, income and gender distribution in North Sydney from 2021 Census")
+```
+
+North Sydney, classified as an Inner Metropolitan area, was won by Independent in 2022 after being previously held by Liberal party in 2019. The demographic analysis shows several patterns as follows:
+
+- The majority of people in this electorate, particularly in the 25 to 44 age range, earn a high weekly income, especially in the ranges of \$2,000 to \$2,999 and over \$3,500.
+
+- It is notable that number of males is higher than females in these high-income ranges.
+
+- The electorate has a significantly lower proportion of low to middle-income population in this electorate and female has slightly higher number than male in these income rages.
+
+This suggests that the majority of population in this electorate has a high ability to access to highly-education and be able to make high income as a working professional. However, it might have an issue on inequality of gender as number of male being paid in higher income is more than female.
+
+### Comparison with Broader New South Wales
+
+```{r}
+# Visualise age, income and gender distribution of NSW 
+CED_G17_analysis |>
+  
+  # filter out where sex = "P"
+  filter(sex != "P") |>
+  
+  # Visualise distribution in each income range by age and gender
+  ggplot(aes(x = age, y = count, fill = sex)) +
+  geom_col(position = "dodge") +
+  facet_wrap(~income) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+  ggtitle("Age, income and gender distribution for all electorates in NSW from 2021 Census")
+```
+
+Comparing North Sydney electorate with entire NSW state shows:
+
+- People in North Sydney have higher average income than entire state as there is a high concentration in higher-income which is more than \$2000, weekly.
+
+- Fewer seniors in North Sydney compared to the entire population of New South Wales, with a higher number of population in working-age.
+
+- North Sydney experiences more extreme gender income inequality than the state average, particularly in highest income ranges
+
+The demographic differences between North Sydney and the rest of New South Wales state could support the rationale behind increased support toward independent candidates. The 2022 Independent victory likely resulted from campaign focusing on issues relevant to professional careers, addressing gender equality concerns, and demonstrating a strong understanding of connection with the local community.
+
+### Income, Rent, and Housing Affordability
+
+The following plots will demonstrate `Median_tot_hhd_inc_weekly` and `Median_rent_weekly` from G02 census data for both North Sydney electorate and all electorates in New South Wales.
+
+And as mentioned in part i, CED structure will be used for analysis as the division name from election data can be matched with structure code name.
+
+```{r}
+#| message: false
+#| warning: false
+
+# Load necessary library
+library(sf)
+
+# Read in NSW electoral boundaries data 
+nswmap_aec <- read_sf(here::here("data/nsw-esri-06042016/NSW_electoral_boundaries_25-02-2016.shp"))
+
+# Transform projection from GDA1994 to GDA2020 using EPSG:7844
+nswmap_aec$geometry = st_transform(nswmap_aec$geometry, 7844)
+
+# Read in CED G02 boundaries data 
+nswmap_ced_G02 <- read_sf(here::here("data/Geopackage_2021_G02_NSW_GDA2020/G02_NSW_GDA2020.gpkg"), 
+                          layer = "G02_CED_2021_NSW")
+
+# Create a separate centroids dataset with ensuring the point lies inside polygon
+nswmap_ced_G02_w_centroid <- nswmap_ced_G02 |>
+  mutate(centroid = st_point_on_surface(geom))
+
+# To highlight selected electorate which is North Sydney
+target_name <- "North Sydney"
+selected_electorate <- nswmap_aec |> 
+  filter(Elect_div == target_name)
+
+# Plot census data on electorate map with `Median_tot_hhd_inc_weekly` variable 
+ggplot() +
+  geom_sf(data = nswmap_ced_G02_w_centroid, aes(geometry = centroid, color = Median_tot_hhd_inc_weekly), size = 1) +
+  geom_sf(data = nswmap_aec, aes(geometry = geometry), fill = "transparent", linewidth = 0.2, color = "grey") +
+  geom_sf(data = selected_electorate, aes(geometry = geometry), fill = "transparent", color = "red", linewidth = 0.2) +
+  theme_minimal() +
+  scale_color_viridis_c(name = "Median Total household income, weekly", option = "viridis") +
+  labs(title = "Median of Total household income per week in each electorate")
+
+# Focus on North Sydney electorate
+ggplot() +
+  geom_sf(data = nswmap_ced_G02_w_centroid, aes(geometry = centroid, color = Median_tot_hhd_inc_weekly), size = 3) +
+  geom_sf(data = nswmap_aec, aes(geometry = geometry), fill = "transparent", linewidth = 0.2, color = "grey") +
+  geom_sf(data = selected_electorate, aes(geometry = geometry), fill = "transparent", color = "red", linewidth = 1) +
+  theme_minimal() +
+  scale_color_viridis_c(name = "Median Total household income, weekly", option = "viridis") +
+  coord_sf(xlim = c(150.60, 151.43), ylim = c(-34.35, -33.35)) +
+  geom_sf_text(data = nswmap_aec, aes(geometry = geometry, label = Elect_div), size = 2) +
+  labs(title = "Median of Total household income per week in North Sydney")
+
+```
+
+First variable is `Median_tot_hhd_inc_weekly` which is a median of total household income per week. It is calculated by summing the personal incomes reported by all household members aged 15 years and over.
+
+North Sydney shows a high median total household income of over \$2,600 per week while the most of other electorates have a median total household income in the rage of \$1,000 to \$2,000 per week. Refer to income distribution in previous part, these patterns emphasize that North Sydney is a wealthy electorate with high number of working professional.
+
+This high-income profile is likely linked to voter priorities, which tend to focus more on taxation policies more compared to middle or lower-income electorates.
+
+```{r}
+#| message: false
+#| warning: false
+
+# Plot census data on electorate map with `Median_rent_weekly` variable 
+ggplot() +
+  geom_sf(data = nswmap_ced_G02_w_centroid, aes(geometry = centroid, color = Median_rent_weekly), size = 1) +
+  geom_sf(data = nswmap_aec, aes(geometry = geometry), fill = "transparent", linewidth = 0.2, color = "grey") +
+  geom_sf(data = selected_electorate, aes(geometry = geometry), fill = "transparent", color = "red", linewidth = 0.2) +
+  theme_minimal() +
+  scale_color_viridis_c(name = "Median Rent, weekly", option = "cividis") +
+  labs(title = "Median of rent per week in each electorate")
+
+# Focus on North Sydney electorate
+ggplot() +
+  geom_sf(data = nswmap_ced_G02_w_centroid, aes(geometry = centroid, color = Median_rent_weekly), size = 3) +
+  geom_sf(data = nswmap_aec, aes(geometry = geometry), fill = "transparent", linewidth = 0.2, color = "grey") +
+  geom_sf(data = selected_electorate, aes(geometry = geometry), fill = "transparent", color = "red", linewidth = 1) +
+  theme_minimal() +
+  scale_color_viridis_c(name = "Median Rent, weekly", option = "cividis") +
+  coord_sf(xlim = c(150.60, 151.43), ylim = c(-34.35, -33.35)) +
+  geom_sf_text(data = nswmap_aec, aes(geometry = geometry, label = Elect_div), size = 2) +
+  labs(title = "Median of rent per week in North Sydney")
+
+```
+
+Second variable is `Median_rent_weekly` which is a median of rent paid by household per week. It is derived from the Tenure type and Household payments questions on the Census form.
+
+North Sydney also shows a high median rent amount more than \$550 per week, while the most of other electorates have a median rent amount in the rage of \$200 to \$400 per week.
+
+The high rent reflects the strong demand for housing in inner-city area, which could indicate the inner area has high volume of professional employment and a greater expectation for better facilities. However, since rent is a significant part of household budgets and is directly related with household income, we should consider rent-to-income ratio in the analysis.
+
+### Spatial Comparison Across NSW Electorates
+
+```{r}
+#| message: false
+#| warning: false
+
+# Create new variable for rent-to-income ratio
+rent_to_income <- nswmap_ced_G02_w_centroid |>
+  mutate(rent_to_income_ratio = Median_rent_weekly/Median_tot_hhd_inc_weekly)
+
+# Plot census data on electorate map with `rent_to_income_ratio` variable 
+ggplot() +
+  geom_sf(data = rent_to_income, aes(geometry = centroid, color = rent_to_income_ratio), size = 1) +
+  geom_sf(data = nswmap_aec, aes(geometry = geometry), fill = "transparent", linewidth = 0.2, color = "grey") +
+  geom_sf(data = selected_electorate, aes(geometry = geometry), fill = "transparent", color = "red", linewidth = 0.2) +
+  theme_minimal() +
+  scale_color_viridis_c(name = "Rent to Household Income ratio, weekly", option = "mako") +
+  labs(title = "Rent to Household Income ratio per week in each electorate")
+
+# Focus on North Sydney electorate
+ggplot() +
+  geom_sf(data = rent_to_income, aes(geometry = centroid, color = rent_to_income_ratio), size = 3) +
+  geom_sf(data = nswmap_aec, aes(geometry = geometry), fill = "transparent", linewidth = 0.2, color = "grey") +
+  geom_sf(data = selected_electorate, aes(geometry = geometry), fill = "transparent", color = "red", linewidth = 1) +
+  theme_minimal() +
+  scale_color_viridis_c(name = "Rent to Household Income ratio, weekly", option = "mako") +
+  coord_sf(xlim = c(150.60, 151.43), ylim = c(-34.35, -33.35)) +
+  geom_sf_text(data = nswmap_aec, aes(geometry = geometry, label = Elect_div), size = 2) +
+  labs(title = "Rent to Household Income ratio per week in North Sydney")
+
+```
+
+North Sydney residents spend around 20% of their household income on rent, which is quite similar to other electorates in NSW with lower income. However, the proportion of rent to household income is still significantly high, affecting housing affordability.
+
+These variables are politically significant because the demographic of high-income, high-rent in this electorate can influence voting patterns which will focus on economic management and taxation policies and maintaining property values.
+
+Therefore, the victory of the independent candidate in North Sydney electorate in 2022 election is likely from focusing on these issues that matter to wealthy professionals who pay high rent. This shows how understanding local income and housing costs can help explain election results.
+
+### Is North Sydney Representative of NSW?
+
+Based on my analysis, North Sydney electorate is not representative of the broader state population. The median of household income in North Sydney is exceeds \$2,600 per week, which is significantly higher than across NSW electorates which are around \$1,000 to \$2,000. Similarly, the median of household rent per week is over \$550 per week, compared to \$200 to \$400 in other NSW electorates.
+
+These factors suggest that demographic of North Sydney consists mostly high-income professional households with less distribution in middle and lower income populations. As a result, It lacks the diversity found across NSW electorates and it is align only with other NSW electorates in a small cluster of urban areas.
+
+## Citations
+
+Australian Electoral Commission. (n.d.). *Voting in Australia.* <https://education.aec.gov.au/teacher-resources/files/voting-in-australia.pdf>
+
+Crowley, T. (2025, February 12). *Labor, Coalition strike deal on electoral reform with watered-down caps and disclosure.* ABC News. <https://www.abc.net.au/news/2025-02-12/labor-coalition-strike-electoral-reform-deal/104928032>
+
+Manfield, E. (2025, February 14). *Spike in donations to independents after election spending caps pass parliament.* ABC News. <https://www.abc.net.au/news/2025-02-14/independents-donation-spike-electoral-reform/104937430>
+
+Cameron, S., McAllister, I., Jackman, S., Sheppard, J., Griffith University, The University of Sydney, & The Australian National University. (2022). *THE 2022 AUSTRALIAN FEDERAL ELECTION.* <https://australianelectionstudy.org/wp-content/uploads/The-2022-Australian-Federal-Election-Results-from-the-Australian-Election-Study.pdf>
+
+*R: Viridis Color Palettes.* (n.d.). <https://search.r-project.org/CRAN/refmans/viridisLite/html/viridis.html>
+
+Wickham H, Averick M, Bryan J, Chang W, McGowan LD, François R, Grolemund G, Hayes A, Henry L, Hester J, Kuhn M, Pedersen TL, Miller E, Bache SM, Müller K, Ooms J, Robinson D, Seidel DP, Spinu V, Takahashi K, Vaughan D, Wilke C, Woo K, Yutani H (2019). “Welcome to the tidyverse.” *Journal of Open Source Software*, *4*(43), 1686. doi:10.21105/joss.01686 <https://doi.org/10.21105/joss.01686>.
+
+Müller K (2020). *here: A Simpler Way to Find Your Files*. R package version 1.0.1, <https://CRAN.R-project.org/package=here>.
+
+Firke S (2024). *janitor: Simple Tools for Examining and Cleaning Dirty Data*. R package version 2.2.1, <https://CRAN.R-project.org/package=janitor>.
+
+Wickham H, Bryan J (2023). *readxl: Read Excel Files*. R package version 1.4.3, <https://CRAN.R-project.org/package=readxl>.
+
+Pebesma, E., & Bivand, R. (2023). Spatial Data Science: With Applications in R. Chapman and Hall/CRC. <https://doi.org/10.1201/9780429459016>
+
+Pebesma, E., 2018. Simple Features for R: Standardized Support for Spatial Vector Data. The R Journal 10 (1), 439-446, <https://doi.org/10.32614/RJ-2018-009>
+
+### AI acknowledgment
+
+I used ChatGPT(https://chat.openai.com/) to provide R coding guidance that were used for data manipulating for desired result and visualization including fixing code, then check grammar and vocabulary error. The final output is authored by me, critically reviewed for accuracy, and represents my own thoughts. I take full responsibility for the final content.

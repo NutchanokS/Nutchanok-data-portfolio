@@ -1,0 +1,53 @@
+---
+title: "Time Series Forecasting Project"
+description: "Forecasting NSW household goods retail turnover using benchmark, ETS, and ARIMA models."
+date: "2026-05-15"
+categories: [Forecasting, Time Series, R]
+---
+
+## Overview
+
+This project forecasted monthly household goods retail turnover in New South Wales. The analysis followed a full forecasting workflow, from data exploration and transformation to benchmark, ETS, and ARIMA model comparison.
+
+## Data and Objective
+
+The data records monthly household goods retail turnover in New South Wales, measured in millions of dollars. The objective was to understand the trend and seasonal patterns, compare forecasting models, and produce future forecasts for business-style interpretation.
+
+## Exploratory Analysis
+
+The series showed a clear upward trend and strong monthly seasonality. Turnover was usually highest near the end of the year, especially around December, and seasonal fluctuations became larger as the level of turnover increased.
+
+## Transformation and Train/Test Split
+
+A Box-Cox transformation was used to stabilise the increasing variation in the series. The final 24 months were held out as a test set to compare model performance.
+
+## Benchmark Forecasting
+
+Seasonal naïve and drift methods were used as baseline models. Seasonal naïve performed better because it captured the repeated monthly seasonal pattern more effectively.
+
+## ETS Modelling
+
+ETS models were used to capture trend and seasonality. A manually selected ETS(M,A,M) model was compared with an automatically selected ETS model. Residual diagnostics were used to check whether the models captured the main time series structure.
+
+## ARIMA Modelling
+
+ARIMA models were developed using transformation, differencing, ACF/PACF inspection, information criteria, and residual diagnostics. The selected manual ARIMA model was ARIMA(0,1,2)(0,1,1)[12], chosen based on test-set accuracy when compared with the automatic model.
+
+## Model Evaluation
+
+The benchmark, ETS, and ARIMA models were compared using forecast accuracy measures such as RMSE, MAE, MAPE, MASE, and RMSSE. Residual diagnostics were also used to assess remaining autocorrelation.
+
+## Post-COVID Update
+
+The series was updated with newer ABS data to examine post-COVID movement. Household goods turnover remained above the pre-COVID level and showed stronger seasonal peaks, suggesting that the post-COVID pattern had shifted to a higher and more volatile level.
+
+## Final Forecast
+
+The final models produced 24-month forecasts. All models continued to show strong yearly seasonality, with forecast intervals widening over time to reflect increasing uncertainty.
+
+## Key Takeaway
+
+This project strengthened my ability to complete an end-to-end forecasting workflow using R, including time series exploration, model development, model comparison, residual diagnostics, and clear forecast communication.
+
+
+[View full report](full_series.html)

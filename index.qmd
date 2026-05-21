@@ -1,0 +1,66 @@
+---
+title: "Welcome to My Data Analytics Portfolio"
+subtitle: "Data storytelling, visualisation, forecasting, and analytics"
+page-layout: full
+title-block-banner: true
+---
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+
+library(leaflet)
+
+# Coordinates
+bangkok <- c(lat = 13.7563, lng = 100.5018)
+melbourne <- c(lat = -37.8136, lng = 144.9631)
+
+# Create line from Bangkok to Melbourne
+route <- data.frame(
+  lng = c(bangkok["lng"], melbourne["lng"]),
+  lat = c(bangkok["lat"], melbourne["lat"])
+)
+
+leaflet() |>
+  addProviderTiles(providers$CartoDB.Positron) |>
+  setView(lng = 122, lat = -12, zoom = 3) |>
+  addCircleMarkers(
+    lng = bangkok["lng"],
+    lat = bangkok["lat"],
+    label = "Bangkok, Thailand",
+    radius = 6,
+    fillOpacity = 0.9
+  ) |>
+  addCircleMarkers(
+    lng = melbourne["lng"],
+    lat = melbourne["lat"],
+    label = "Melbourne, Australia",
+    radius = 6,
+    fillOpacity = 0.9
+  ) |>
+  addPolylines(
+    data = route,
+    lng = ~lng,
+    lat = ~lat,
+    weight = 3,
+    opacity = 0.8,
+    label = "Bangkok to Melbourne"
+  ) |>
+  addControl(
+    html = "<strong>From accounting and finance in Thailand<br>to business analytics in Australia</strong>",
+    position = "bottomleft"
+  )
+```
+
+<br>
+
+This portfolio presents selected work in data storytelling, visualisation, forecasting, and analytics.
+
+My background connects accounting and financial reporting experience in Thailand with business analytics study in Australia.
+
+[View My Projects](projects.qmd){.btn .btn-primary}
+[About Me](about.qmd){.btn .btn-secondary}
+
+
+

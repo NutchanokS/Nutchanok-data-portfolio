@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.25">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Nutchanok Saitin">
+
+<title>Election Data Analysis: Independent Candidate Support in Australia – Nutchanok Saitin - Portfolio</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-980b7731fb1d77f0b19a7f8959812838.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="../../styles.css">
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a href="../../index.html" class="navbar-brand navbar-brand-logo">
+    </a>
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Nutchanok Saitin - Portfolio</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../projects.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../about.html"> 
+<span class="menu-text">About Me</span></a>
+  </li>  
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://www.linkedin.com/in/nutchanok-saitin-9022a6189"> <i class="bi bi-linkedin" role="img">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/NutchanokS"> <i class="bi bi-github" role="img">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">Election Data Analysis: Independent Candidate Support in Australia</h1>
+                      </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Nutchanok Saitin </p>
+            </div>
+    </div>
+      
+    
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#project-background" id="toc-project-background" class="nav-link active" data-scroll-target="#project-background">Project Background</a>
+  <ul class="collapse">
+  <li><a href="#independent-candidate-support-analysis" id="toc-independent-candidate-support-analysis" class="nav-link" data-scroll-target="#independent-candidate-support-analysis">Independent Candidate Support Analysis</a>
+  <ul class="collapse">
+  <li><a href="#data-collection-and-preparation" id="toc-data-collection-and-preparation" class="nav-link" data-scroll-target="#data-collection-and-preparation">Data Collection and Preparation</a></li>
+  <li><a href="#independent-seat-changes-from-2019-to-2022" id="toc-independent-seat-changes-from-2019-to-2022" class="nav-link" data-scroll-target="#independent-seat-changes-from-2019-to-2022">Independent Seat Changes from 2019 to 2022</a></li>
+  <li><a href="#previous-party-control-of-independent-won-seats" id="toc-previous-party-control-of-independent-won-seats" class="nav-link" data-scroll-target="#previous-party-control-of-independent-won-seats">Previous Party Control of Independent-Won Seats</a></li>
+  <li><a href="#first-round-support-for-independents-and-minor-parties" id="toc-first-round-support-for-independents-and-minor-parties" class="nav-link" data-scroll-target="#first-round-support-for-independents-and-minor-parties">First-Round Support for Independents and Minor Parties</a></li>
+  <li><a href="#change-in-first-round-vote-share-from-2019-to-2022" id="toc-change-in-first-round-vote-share-from-2019-to-2022" class="nav-link" data-scroll-target="#change-in-first-round-vote-share-from-2019-to-2022">Change in First-Round Vote Share from 2019 to 2022</a></li>
+  <li><a href="#distribution-of-vote-share-changes" id="toc-distribution-of-vote-share-changes" class="nav-link" data-scroll-target="#distribution-of-vote-share-changes">Distribution of Vote Share Changes</a></li>
+  <li><a href="#geographic-patterns-in-voter-support" id="toc-geographic-patterns-in-voter-support" class="nav-link" data-scroll-target="#geographic-patterns-in-voter-support">Geographic Patterns in Voter Support</a></li>
+  <li><a href="#key-findings-and-political-implications" id="toc-key-findings-and-political-implications" class="nav-link" data-scroll-target="#key-findings-and-political-implications">Key Findings and Political Implications</a></li>
+  </ul></li>
+  <li><a href="#north-sydney-electorate-case-study" id="toc-north-sydney-electorate-case-study" class="nav-link" data-scroll-target="#north-sydney-electorate-case-study">North Sydney Electorate Case Study</a>
+  <ul class="collapse">
+  <li><a href="#demographic-profile-of-north-sydney" id="toc-demographic-profile-of-north-sydney" class="nav-link" data-scroll-target="#demographic-profile-of-north-sydney">Demographic Profile of North Sydney</a></li>
+  <li><a href="#comparison-with-broader-new-south-wales" id="toc-comparison-with-broader-new-south-wales" class="nav-link" data-scroll-target="#comparison-with-broader-new-south-wales">Comparison with Broader New South Wales</a></li>
+  <li><a href="#income-rent-and-housing-affordability" id="toc-income-rent-and-housing-affordability" class="nav-link" data-scroll-target="#income-rent-and-housing-affordability">Income, Rent, and Housing Affordability</a></li>
+  <li><a href="#spatial-comparison-across-nsw-electorates" id="toc-spatial-comparison-across-nsw-electorates" class="nav-link" data-scroll-target="#spatial-comparison-across-nsw-electorates">Spatial Comparison Across NSW Electorates</a></li>
+  <li><a href="#is-north-sydney-representative-of-nsw" id="toc-is-north-sydney-representative-of-nsw" class="nav-link" data-scroll-target="#is-north-sydney-representative-of-nsw">Is North Sydney Representative of NSW?</a></li>
+  </ul></li>
+  <li><a href="#citations" id="toc-citations" class="nav-link" data-scroll-target="#citations">Citations</a>
+  <ul class="collapse">
+  <li><a href="#ai-acknowledgment" id="toc-ai-acknowledgment" class="nav-link" data-scroll-target="#ai-acknowledgment">AI acknowledgment</a></li>
+  </ul></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+<section id="project-background" class="level1">
+<h1>Project Background</h1>
+<p>This project analyses changes in support for independent and minor party candidates between the 2019 and 2022 Australian federal elections.</p>
+<section id="independent-candidate-support-analysis" class="level2">
+<h2 class="anchored" data-anchor-id="independent-candidate-support-analysis">Independent Candidate Support Analysis</h2>
+<section id="data-collection-and-preparation" class="level3">
+<h3 class="anchored" data-anchor-id="data-collection-and-preparation">Data Collection and Preparation</h3>
+<p>The 2019 and 2022 preferential vote data by division were combined into a single dataset to support year-to-year comparison.</p>
+</section>
+<section id="independent-seat-changes-from-2019-to-2022" class="level3">
+<h3 class="anchored" data-anchor-id="independent-seat-changes-from-2019-to-2022">Independent Seat Changes from 2019 to 2022</h3>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 10 × 4
+   division_nm  party_ab `2019` `2022`
+   &lt;chr&gt;        &lt;chr&gt;    &lt;chr&gt;  &lt;chr&gt; 
+ 1 Warringah    IND      Y      Y     
+ 2 Clark        IND      Y      Y     
+ 3 Indi         IND      Y      Y     
+ 4 Fowler       IND      N      Y     
+ 5 Mackellar    IND      N      Y     
+ 6 North Sydney IND      N      Y     
+ 7 Wentworth    IND      N      Y     
+ 8 Goldstein    IND      N      Y     
+ 9 Kooyong      IND      N      Y     
+10 Curtin       IND      N      Y     </code></pre>
+</div>
+</div>
+<p>Comparing 2022 to 2019, the results show that divisions were held for independents are Warringah, Clark, and Indi, while the new electoral wins for independents are Fowler, Mackellar, North Sydney, Wentworth, Goldstein, Kooyong, and Curtin.</p>
+</section>
+<section id="previous-party-control-of-independent-won-seats" class="level3">
+<h3 class="anchored" data-anchor-id="previous-party-control-of-independent-won-seats">Previous Party Control of Independent-Won Seats</h3>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 10 × 3
+   division_nm  `2019`      `2022`     
+   &lt;chr&gt;        &lt;chr&gt;       &lt;chr&gt;      
+ 1 Warringah    Independent Independent
+ 2 Clark        Independent Independent
+ 3 Indi         Independent Independent
+ 4 Fowler       Labor       Independent
+ 5 Mackellar    Liberal     Independent
+ 6 North Sydney Liberal     Independent
+ 7 Wentworth    Liberal     Independent
+ 8 Goldstein    Liberal     Independent
+ 9 Kooyong      Liberal     Independent
+10 Curtin       Liberal     Independent</code></pre>
+</div>
+</div>
+<p>Parties previously held the independent seats won in 2022 beside themselves are Liberal and Labor.</p>
+</section>
+<section id="first-round-support-for-independents-and-minor-parties" class="level3">
+<h3 class="anchored" data-anchor-id="first-round-support-for-independents-and-minor-parties">First-Round Support for Independents and Minor Parties</h3>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 10 × 3
+   election_year division_nm preferencecount
+           &lt;dbl&gt; &lt;chr&gt;                 &lt;dbl&gt;
+ 1          2019 Adelaide              25265
+ 2          2022 Adelaide              31598
+ 3          2019 Aston                 15507
+ 4          2022 Aston                 23951
+ 5          2019 Ballarat              22144
+ 6          2022 Ballarat              27187
+ 7          2019 Banks                 11680
+ 8          2022 Banks                 17964
+ 9          2019 Barker                19510
+10          2022 Barker                24884</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 10 × 3
+   election_year division_nm preferenceper
+           &lt;dbl&gt; &lt;chr&gt;               &lt;dbl&gt;
+ 1          2019 Adelaide             23.6
+ 2          2022 Adelaide             28.0
+ 3          2019 Aston                15.5
+ 4          2022 Aston                24.4
+ 5          2019 Ballarat             21.6
+ 6          2022 Ballarat             28.2
+ 7          2019 Banks                12.7
+ 8          2022 Banks                19.5
+ 9          2019 Barker               18.5
+10          2022 Barker               23.5</code></pre>
+</div>
+</div>
+<p>From sample of the raw voter counts and the percentage of votes there are pros and cons as follows:</p>
+<p><strong>raw voter counts</strong></p>
+<ul>
+<li>Pros
+<ul>
+<li>Shows actual number of votes in each electorate</li>
+<li>Reflects real size of population</li>
+</ul></li>
+<li>Cons
+<ul>
+<li>Hard to compare divisions with significant differences in population size</li>
+<li>It could lead to misinterpretation, as the high number of vote counts might represnet only a small portion in that electorate</li>
+</ul></li>
+</ul>
+<p><strong>percentage of votes</strong></p>
+<ul>
+<li>Pros
+<ul>
+<li>Standardises the data, making it comparable across divisions regardless of population size</li>
+<li>Makes it easier to analyse the supporting trend across years</li>
+</ul></li>
+<li>Cons
+<ul>
+<li>It masks actual number of votes</li>
+<li>A small change in votes within an electorate with a small population size can lead to significant percentage change, which may misleadingly suggest a large increase in support.</li>
+</ul></li>
+</ul>
+</section>
+<section id="change-in-first-round-vote-share-from-2019-to-2022" class="level3">
+<h3 class="anchored" data-anchor-id="change-in-first-round-vote-share-from-2019-to-2022">Change in First-Round Vote Share from 2019 to 2022</h3>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code> division_nm             2019            2022        percent_chg     
+ Length:152         Min.   : 0.00   Min.   : 0.00   Min.   :-21.210  
+ Class :character   1st Qu.:19.53   1st Qu.:26.09   1st Qu.:  3.053  
+ Mode  :character   Median :23.91   Median :30.32   Median :  5.730  
+                    Mean   :25.57   Mean   :31.99   Mean   :  6.416  
+                    3rd Qu.:28.47   3rd Qu.:35.03   3rd Qu.:  9.055  
+                    Max.   :62.41   Max.   :65.40   Max.   : 36.940  </code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 10 × 4
+   division_nm  `2019` `2022` percent_chg
+   &lt;chr&gt;         &lt;dbl&gt;  &lt;dbl&gt;       &lt;dbl&gt;
+ 1 Hawke           0     36.9        36.9
+ 2 Fowler         15.4   46.8        31.4
+ 3 Goldstein      19.0   48.6        29.6
+ 4 Mackellar      30.1   50.3        20.3
+ 5 Bradfield      18.5   37.5        19.0
+ 6 Hughes         16.4   34.0        17.6
+ 7 North Sydney   23.0   40.5        17.5
+ 8 Hume           20.1   37.0        16.8
+ 9 Kooyong        33.8   50.4        16.7
+10 Curtin         28.2   44.7        16.5</code></pre>
+</div>
+</div>
+<p>The change in first round votes between 2019 and 2022 elections shows that independents and minor parties gained more support in most electorates as indicated by the positive value in average percentage change.</p>
+<p>The most significant shifts occurred in electorates like Fowler, Goldstein, and Mackellar, suggesting that significant increases directly contributed to independents winning these seats from major parties. Thus, this indicates a shift in voter behavior that could continue in future elections.</p>
+</section>
+<section id="distribution-of-vote-share-changes" class="level3">
+<h3 class="anchored" data-anchor-id="distribution-of-vote-share-changes">Distribution of Vote Share Changes</h3>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="election_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="geographic-patterns-in-voter-support" class="level3">
+<h3 class="anchored" data-anchor-id="geographic-patterns-in-voter-support">Geographic Patterns in Voter Support</h3>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="election_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Overall, a consistent geographic pattern emerges where all area types (Inner Metropolitan, Outer Metropolitan, Provincial, and Rural) showed increased support for independents and minor parties in 2022 for the first round votes. However, the magnitude of change varied across each geography.</p>
+<ul>
+<li><p>Inner Metropolitan areas saw largest increased support to independents and minor parties with uneven change across divisions.</p></li>
+<li><p>Outer Metropolitan and Provincial areas showed similar increases with consistent voting patterns.</p></li>
+<li><p>Rural areas maintained the highest overall median support in both elections</p></li>
+</ul>
+<p>These patterns suggest that voters in all areas have shifted their preferences toward independents and minor parties, especially in urban centers, where voters showed dramatically uneven change in support for independents and minor parties in the 2022 election.</p>
+</section>
+<section id="key-findings-and-political-implications" class="level3">
+<h3 class="anchored" data-anchor-id="key-findings-and-political-implications">Key Findings and Political Implications</h3>
+<p><strong>Key findings:</strong></p>
+<ol type="1">
+<li>Seat changes:
+<ul>
+<li>Independents secured 10 seats in 2022, an increase of 7 seats from 2019.</li>
+<li>Seven of these seats were previously held by Labor and Liberal parties (Major parties).</li>
+</ul></li>
+<li>Voting trend from first round voting:
+<ul>
+<li>The average first-round preference for independents and minor parties increased by 6.4%.</li>
+<li>About 88% of all divisions showed increased support for independents and minor parties.</li>
+</ul></li>
+<li>Geographic pattern:
+<ul>
+<li>All area types showed increasing of support for independents and minor parties in 2022.</li>
+<li>Inner Metropolitan areas saw the largest increases, but with high variability, while other areas showed more consistent growth in support for independents and minor parties.</li>
+<li>Rural areas maintained the highest overall support in both elections.</li>
+</ul></li>
+</ol>
+<p><strong>Implication</strong></p>
+<p>As the voting trend has shifted toward independents and minor parties in recent years, coupled with increased in donations to independents after electoral reform limiting donations and expenditures passed parliament, these factors lead to a high possibility that independents or minor parties will win more seats in the upcoming election.</p>
+<p>Moreover, the increased support for independents and minor parties across all geographic regions suggests that this is not just happening to metropolitan areas but is a broader electoral trend, especially in Inner Metropolitan areas where major party seats have become more vulnerable.</p>
+<p>Therefore, maintaining seats for major parties could be done through developing their strategies for vulnerable seats in Inner Metropolitan areas and strengthening their connection in local areas which are at-risk electorates.</p>
+</section>
+</section>
+<section id="north-sydney-electorate-case-study" class="level2">
+<h2 class="anchored" data-anchor-id="north-sydney-electorate-case-study">North Sydney Electorate Case Study</h2>
+<section id="demographic-profile-of-north-sydney" class="level3">
+<h3 class="anchored" data-anchor-id="demographic-profile-of-north-sydney">Demographic Profile of North Sydney</h3>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="election_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>North Sydney, classified as an Inner Metropolitan area, was won by Independent in 2022 after being previously held by Liberal party in 2019. The demographic analysis shows several patterns as follows:</p>
+<ul>
+<li><p>The majority of people in this electorate, particularly in the 25 to 44 age range, earn a high weekly income, especially in the ranges of $2,000 to $2,999 and over $3,500.</p></li>
+<li><p>It is notable that number of males is higher than females in these high-income ranges.</p></li>
+<li><p>The electorate has a significantly lower proportion of low to middle-income population in this electorate and female has slightly higher number than male in these income rages.</p></li>
+</ul>
+<p>This suggests that the majority of population in this electorate has a high ability to access to highly-education and be able to make high income as a working professional. However, it might have an issue on inequality of gender as number of male being paid in higher income is more than female.</p>
+</section>
+<section id="comparison-with-broader-new-south-wales" class="level3">
+<h3 class="anchored" data-anchor-id="comparison-with-broader-new-south-wales">Comparison with Broader New South Wales</h3>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="election_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Comparing North Sydney electorate with entire NSW state shows:</p>
+<ul>
+<li><p>People in North Sydney have higher average income than entire state as there is a high concentration in higher-income which is more than $2000, weekly.</p></li>
+<li><p>Fewer seniors in North Sydney compared to the entire population of New South Wales, with a higher number of population in working-age.</p></li>
+<li><p>North Sydney experiences more extreme gender income inequality than the state average, particularly in highest income ranges</p></li>
+</ul>
+<p>The demographic differences between North Sydney and the rest of New South Wales state could support the rationale behind increased support toward independent candidates. The 2022 Independent victory likely resulted from campaign focusing on issues relevant to professional careers, addressing gender equality concerns, and demonstrating a strong understanding of connection with the local community.</p>
+</section>
+<section id="income-rent-and-housing-affordability" class="level3">
+<h3 class="anchored" data-anchor-id="income-rent-and-housing-affordability">Income, Rent, and Housing Affordability</h3>
+<p>The following plots will demonstrate <code>Median_tot_hhd_inc_weekly</code> and <code>Median_rent_weekly</code> from G02 census data for both North Sydney electorate and all electorates in New South Wales.</p>
+<p>And as mentioned in part i, CED structure will be used for analysis as the division name from election data can be matched with structure code name.</p>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="election_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="election_files/figure-html/unnamed-chunk-10-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>First variable is <code>Median_tot_hhd_inc_weekly</code> which is a median of total household income per week. It is calculated by summing the personal incomes reported by all household members aged 15 years and over.</p>
+<p>North Sydney shows a high median total household income of over $2,600 per week while the most of other electorates have a median total household income in the rage of $1,000 to $2,000 per week. Refer to income distribution in previous part, these patterns emphasize that North Sydney is a wealthy electorate with high number of working professional.</p>
+<p>This high-income profile is likely linked to voter priorities, which tend to focus more on taxation policies more compared to middle or lower-income electorates.</p>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="election_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="election_files/figure-html/unnamed-chunk-11-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Second variable is <code>Median_rent_weekly</code> which is a median of rent paid by household per week. It is derived from the Tenure type and Household payments questions on the Census form.</p>
+<p>North Sydney also shows a high median rent amount more than $550 per week, while the most of other electorates have a median rent amount in the rage of $200 to $400 per week.</p>
+<p>The high rent reflects the strong demand for housing in inner-city area, which could indicate the inner area has high volume of professional employment and a greater expectation for better facilities. However, since rent is a significant part of household budgets and is directly related with household income, we should consider rent-to-income ratio in the analysis.</p>
+</section>
+<section id="spatial-comparison-across-nsw-electorates" class="level3">
+<h3 class="anchored" data-anchor-id="spatial-comparison-across-nsw-electorates">Spatial Comparison Across NSW Electorates</h3>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="election_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="election_files/figure-html/unnamed-chunk-12-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>North Sydney residents spend around 20% of their household income on rent, which is quite similar to other electorates in NSW with lower income. However, the proportion of rent to household income is still significantly high, affecting housing affordability.</p>
+<p>These variables are politically significant because the demographic of high-income, high-rent in this electorate can influence voting patterns which will focus on economic management and taxation policies and maintaining property values.</p>
+<p>Therefore, the victory of the independent candidate in North Sydney electorate in 2022 election is likely from focusing on these issues that matter to wealthy professionals who pay high rent. This shows how understanding local income and housing costs can help explain election results.</p>
+</section>
+<section id="is-north-sydney-representative-of-nsw" class="level3">
+<h3 class="anchored" data-anchor-id="is-north-sydney-representative-of-nsw">Is North Sydney Representative of NSW?</h3>
+<p>Based on my analysis, North Sydney electorate is not representative of the broader state population. The median of household income in North Sydney is exceeds $2,600 per week, which is significantly higher than across NSW electorates which are around $1,000 to $2,000. Similarly, the median of household rent per week is over $550 per week, compared to $200 to $400 in other NSW electorates.</p>
+<p>These factors suggest that demographic of North Sydney consists mostly high-income professional households with less distribution in middle and lower income populations. As a result, It lacks the diversity found across NSW electorates and it is align only with other NSW electorates in a small cluster of urban areas.</p>
+</section>
+</section>
+<section id="citations" class="level2">
+<h2 class="anchored" data-anchor-id="citations">Citations</h2>
+<p>Australian Electoral Commission. (n.d.). <em>Voting in Australia.</em> <a href="https://education.aec.gov.au/teacher-resources/files/voting-in-australia.pdf" class="uri">https://education.aec.gov.au/teacher-resources/files/voting-in-australia.pdf</a></p>
+<p>Crowley, T. (2025, February 12). <em>Labor, Coalition strike deal on electoral reform with watered-down caps and disclosure.</em> ABC News. <a href="https://www.abc.net.au/news/2025-02-12/labor-coalition-strike-electoral-reform-deal/104928032" class="uri">https://www.abc.net.au/news/2025-02-12/labor-coalition-strike-electoral-reform-deal/104928032</a></p>
+<p>Manfield, E. (2025, February 14). <em>Spike in donations to independents after election spending caps pass parliament.</em> ABC News. <a href="https://www.abc.net.au/news/2025-02-14/independents-donation-spike-electoral-reform/104937430" class="uri">https://www.abc.net.au/news/2025-02-14/independents-donation-spike-electoral-reform/104937430</a></p>
+<p>Cameron, S., McAllister, I., Jackman, S., Sheppard, J., Griffith University, The University of Sydney, &amp; The Australian National University. (2022). <em>THE 2022 AUSTRALIAN FEDERAL ELECTION.</em> <a href="https://australianelectionstudy.org/wp-content/uploads/The-2022-Australian-Federal-Election-Results-from-the-Australian-Election-Study.pdf" class="uri">https://australianelectionstudy.org/wp-content/uploads/The-2022-Australian-Federal-Election-Results-from-the-Australian-Election-Study.pdf</a></p>
+<p><em>R: Viridis Color Palettes.</em> (n.d.). <a href="https://search.r-project.org/CRAN/refmans/viridisLite/html/viridis.html" class="uri">https://search.r-project.org/CRAN/refmans/viridisLite/html/viridis.html</a></p>
+<p>Wickham H, Averick M, Bryan J, Chang W, McGowan LD, François R, Grolemund G, Hayes A, Henry L, Hester J, Kuhn M, Pedersen TL, Miller E, Bache SM, Müller K, Ooms J, Robinson D, Seidel DP, Spinu V, Takahashi K, Vaughan D, Wilke C, Woo K, Yutani H (2019). “Welcome to the tidyverse.” <em>Journal of Open Source Software</em>, <em>4</em>(43), 1686. doi:10.21105/joss.01686 <a href="https://doi.org/10.21105/joss.01686" class="uri">https://doi.org/10.21105/joss.01686</a>.</p>
+<p>Müller K (2020). <em>here: A Simpler Way to Find Your Files</em>. R package version 1.0.1, <a href="https://CRAN.R-project.org/package=here" class="uri">https://CRAN.R-project.org/package=here</a>.</p>
+<p>Firke S (2024). <em>janitor: Simple Tools for Examining and Cleaning Dirty Data</em>. R package version 2.2.1, <a href="https://CRAN.R-project.org/package=janitor" class="uri">https://CRAN.R-project.org/package=janitor</a>.</p>
+<p>Wickham H, Bryan J (2023). <em>readxl: Read Excel Files</em>. R package version 1.4.3, <a href="https://CRAN.R-project.org/package=readxl" class="uri">https://CRAN.R-project.org/package=readxl</a>.</p>
+<p>Pebesma, E., &amp; Bivand, R. (2023). Spatial Data Science: With Applications in R. Chapman and Hall/CRC. <a href="https://doi.org/10.1201/9780429459016" class="uri">https://doi.org/10.1201/9780429459016</a></p>
+<p>Pebesma, E., 2018. Simple Features for R: Standardized Support for Spatial Vector Data. The R Journal 10 (1), 439-446, <a href="https://doi.org/10.32614/RJ-2018-009" class="uri">https://doi.org/10.32614/RJ-2018-009</a></p>
+<section id="ai-acknowledgment" class="level3">
+<h3 class="anchored" data-anchor-id="ai-acknowledgment">AI acknowledgment</h3>
+<p>I used ChatGPT(https://chat.openai.com/) to provide R coding guidance that were used for data manipulating for desired result and visualization including fixing code, then check grammar and vocabulary error. The final output is authored by me, critically reviewed for accuracy, and represents my own thoughts. I take full responsibility for the final content.</p>
+
+
+</section>
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

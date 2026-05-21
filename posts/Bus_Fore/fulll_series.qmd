@@ -1,0 +1,999 @@
+---
+title: "Time Series Forecasting of NSW Household Goods Retail Turnover"
+author: "Nutchanok Saitin"
+format:
+  html:
+    toc: true
+    code-fold: true
+    code-tools: false
+editor_options:
+  chunk_output_type: console
+---
+
+## Project Background
+
+This report combines three time series analyses into one portfolio-style forecasting project. The project analyses monthly household goods retail turnover in New South Wales and compares benchmark, ETS, and ARIMA forecasting approaches.
+
+## Forecasting Workflow
+
+The workflow follows these stages:
+
+1. Explore the time series pattern, including trend, seasonality, lag relationships, and autocorrelation.
+2. Apply transformations and train/test splitting for model evaluation.
+3. Build benchmark forecasting models as a baseline.
+4. Develop ETS models to capture trend and seasonality.
+5. Develop ARIMA models using transformation, differencing, ACF/PACF inspection, and residual diagnostics.
+6. Compare forecasting performance using accuracy measures and visual forecast evaluation.
+7. Update the series with newer ABS data and produce final forecasts.
+
+```{r}
+#| label: setup
+#| include: false
+
+knitr::opts_chunk$set(echo = FALSE, eval = TRUE, error = FALSE, cache = FALSE, message = FALSE, warning = FALSE)
+library(fpp3)
+library(readr)
+library(readxl)
+library(lubridate)
+```
+
+```{r}
+#| eval: true
+#| message: false
+#| include: false
+
+# Read in and tidy up your data
+
+# First three rows contain metadata, read them in separately
+meta <- read_csv("IA_data.csv", col_names = TRUE, n_max = 3)
+# meta
+
+# The data follows after the third row, we skip the metadata and read the data. 
+# Note: Skipping the first row skips the column names, we add them back from the
+#       metadata.
+dat <- read_csv("IA_data.csv", 
+                # use column names from the metadata
+                col_names = colnames(meta),
+                # skip 4 rows as we also skip column names, specified above
+                skip = 4)
+
+# Select the turnover series column and convert it into a tsibble.
+series_col <- names(dat)[ncol(dat)]
+
+household_goods_nsw <- dat %>% 
+  rename(Month = "Student ID") %>%
+  transmute(Month = yearmonth(Month), y = .data[[series_col]]) %>% 
+  as_tsibble(index = Month)
+```
+
+## Exploratory Analysis and Benchmark Forecasting
+
+### Data Overview and Initial Exploration
+```{r}
+#| message: false
+
+# Name and unit of data
+sector_name <- meta %>%
+  filter(`Student ID` == "Sector") %>%
+  pull(.data[[series_col]])
+
+data_unit <- meta %>%
+  filter(`Student ID` == "Unit") %>%
+  pull(.data[[series_col]])
+
+cat("Sector: ", sector_name, "\n")
+cat("Unit: ", data_unit, "\n")
+```
+
+```{r}
+#| message: false
+
+head(household_goods_nsw, 3)
+tail(household_goods_nsw, 3)
+```
+
+**What is the data about**
+
+This series records monthly household goods retail turnover in New South Wales, measured in millions of dollars, over the period April 1982 to June 2023.
+
+**Get to know the data**
+
+```{r}
+#| message: false
+
+household_goods_nsw %>% autoplot(y) +
+  labs(x = "Month",
+       y = "Turnover (million $AUD)", 
+       title = "Household goods retailing",
+       subtitle = "New South Wales")
+```
+
+The series shows an upward trend that is not linear, along with a clear seasonal pattern. The seasonal fluctuations also become larger as turnover increases over time.
+
+```{r}
+#| message: false
+
+household_goods_nsw %>% gg_season(y) +
+  labs(x = "Month",
+       y = "Turnover (million $AUD)", 
+       title = "Household goods retailing",
+       subtitle = "New South Wales")
+```
+
+The seasonal plot shows clear seasonality, with turnover usually highest in December, possibly due to Christmas and New Year shopping. Smaller rises also appear around March, May and June. One year shows an unusual dip around August, suggesting a temporary disruption.
+
+```{r}
+#| message: false
+#| fig-width: 10
+
+household_goods_nsw %>% gg_subseries(y) +
+  labs(x ="",
+       y = "Turnover (million $AUD)", 
+       title = "Household goods retailing",
+       subtitle = "New South Wales")
+```
+
+The subseries plot confirms strong seasonality, with December having the highest average turnover. Most months also show an upward trend over time, indicating that turnover has generally increased across the years.
+
+```{r}
+#| message: false
+#| fig-height: 10
+#| fig-width: 10
+
+household_goods_nsw %>% gg_lag(y, lags=1:24, geom='point') +
+  facet_wrap(~ .lag, ncol=6) +
+  labs(y = "Turnover (million $AUD)", 
+       title = "Household goods retailing",
+       subtitle = "New South Wales")
+```
+
+The lag plots show strong positive relationships, especially at lags 12 and 24, suggesting the series has strong dependence over time and clear yearly seasonality.
+
+```{r}
+#| message: false
+
+household_goods_nsw  %>% 
+  ACF(y, lag_max = 50) %>%
+  autoplot()
+```
+
+The ACF indicates the series is not white noise and shows strong persistence, consistent with the trend and seasonal structure seen earlier.
+
+
+### Transformation Choice
+```{r}
+
+household_goods_nsw %>% autoplot(y) +
+  labs(x = "Month",
+       y = "Turnover (million $AUD)", 
+       title = "Original series")
+```
+
+From the original series, it appears that a transformation is useful because seasonal variation increases as turnover rises over time. Both log and Box-Cox reduce this changing variance, making the series more stable and easier to model.
+
+**Transformation Comparison**
+
+```{r}
+
+# Log plot
+household_goods_nsw %>% autoplot(log(y)) +
+  labs(x = "Month",
+       y = "log(Turnover)",
+       title = "Log-transformed series")
+```
+
+```{r}
+
+# Guerrero’s method to estimate an appropriate lambda for the Box-Cox transformation.
+lambda <- household_goods_nsw %>%
+  features(y, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+# Box-Cox plot
+household_goods_nsw %>% autoplot(box_cox(y, lambda)) +
+  labs(x = "Month",
+       y = "Box-Cox transformed turnover",
+       title = paste("Box-Cox transformed series (lambda =", round(lambda, 3), ")")
+       )
+```
+
+By comparing the two graphs, the Box-Cox transformation appears better because it makes the variation more stable across the series. 
+
+
+### Train/Test Split
+```{r}
+
+# Split data to train set
+train <- household_goods_nsw %>%
+  slice(1:(n() - 24))
+
+# Split last two years' data to test set
+test <- household_goods_nsw %>%
+  slice((n() - 23):n())
+
+# Plot 
+autoplot(train, y) +
+  autolayer(test, y, colour = "red") +
+  labs(x = "Month",
+       y = "Turnover ($ Millions)",
+       title = "Training and test sets")
+```
+
+
+### Benchmark Forecasting Models
+The original series has a clear monthly seasonal pattern and an upward trend, so Seasonal naïve and Drift were chosen as the two most appropriate benchmark methods. Seasonal naïve captures the repeating seasonal pattern, while Drift only captures the overall upward movement.
+
+```{r}
+
+# Estimate lambda from training set only
+lambda <- train %>%
+  features(y, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+# Transform training and test sets
+train_bc <- train %>%
+  mutate(y_bc = box_cox(y, lambda))
+
+test_bc <- test %>%
+  mutate(y_bc = box_cox(y, lambda))
+
+# Fit two benchmark methods
+fit <- train_bc %>%
+  model(
+    snaive = SNAIVE(y_bc),
+    drift  = RW(y_bc ~ drift())
+  )
+
+# Forecast test period
+fc <- fit %>%
+  forecast(h = "2 years")
+```
+
+```{r}
+#| fig-height: 5
+#| fig-width: 10
+
+# Rename legend
+fc_plot <- fc %>%
+  mutate(.model = recode(.model,
+    snaive = "Seasonal naive",
+    drift = "Drift"
+  ))
+
+# Plot
+fc_plot %>%
+  autoplot(train_bc, level = NULL) +
+  autolayer(test_bc, y_bc, colour = "darkgrey") +
+  labs(x = "Month",
+       y = "Box-Cox transformed turnover ($ Millions)",
+       title = "Benchmark forecasts for the test set",
+       colour = "Method")
+```
+
+**Forecast accuracy table**
+
+```{r}
+
+# Compare forecast accuracy on test set
+fc_acc <- fc %>%
+  accuracy(test_bc) %>%
+  select(.model, RMSE, MAE, MAPE)
+
+fc_acc
+```
+
+The forecasting performance was compared on the Box-Cox transformed scale using RMSE, MAE and MAPE. From the test-set accuracy table, Seasonal naïve performed better because it gave lower RMSE, MAE and MAPE than Drift. This is also clear in the forecast plot, where Seasonal naïve follows the peaks and troughs more closely, while Drift misses the seasonal pattern.
+
+
+### Benchmark Residual Diagnostics
+```{r}
+#| warning: false
+#| fig-height: 5
+#| fig-width: 10
+
+# Fit SNAIVE
+fit_best <- train_bc %>%
+  model(snaive = SNAIVE(y_bc))
+
+# Plot residual
+fit_best %>%
+  gg_tsresiduals()
+
+# Ljung-Box test
+augment(fit_best) %>%
+  features(.innov, ljung_box, lag = 24, dof = 0)
+```
+
+Residual analysis suggests that the Seasonal naïve model does not fully satisfy the white-noise assumptions. The residual time plot shows some clustering and several large spikes, rather than random variation around zero. The ACF plot has many significant spikes at the early lags, showing strong autocorrelation remains in the residuals. The histogram is slightly right-skewed, with some large positive residuals, so the distribution is not perfectly symmetric. This is also confirmed by the Ljung–Box test, where the p-value is approximately 0, indicating that the residuals are not uncorrelated and therefore do not resemble white noise.
+
+Overall, the residuals still contain structure, meaning the model has not captured all of the information in the series. Since Seasonal naïve already captures the repeating monthly seasonal pattern, it appears to have missed some of the underlying level or trend changes over time.
+
+
+### Benchmark Forecasts
+```{r}
+
+# Transform series
+household_goods_nsw_bc <- household_goods_nsw %>%
+  mutate(y_bc = box_cox(y, lambda))
+
+# Fit best benchmark method to full series
+fit_final <- household_goods_nsw_bc %>%
+  model(snaive = SNAIVE(y_bc))
+
+# Forecast next 2 years
+fc_future <- fit_final %>%
+  forecast(h = "2 years")
+
+# Plot forecasts
+fc_future %>%
+  autoplot(household_goods_nsw_bc, level = NULL) +
+  labs(x = "Month",
+       y = "Box-Cox transformed turnover ($ Millions)",
+       title = "Two-year forecasts from the best benchmark method"
+       )
+```
+
+The forecasts keep the clear monthly seasonal pattern, with repeating peaks and troughs across the next two years. This is expected because Seasonal naïve repeats the values from the same months in the previous year. However, the forecasts remain at about the same level as the most recent year and do not show any additional upward trend. This means the method is useful as a simple benchmark, but it may miss further growth or any structural change in the series.
+
+
+
+## ETS Modelling
+
+### ETS Model Selection
+```{r}
+#| message: false
+#| fig-width: 10
+#| fig-height: 6
+
+household_goods_nsw %>% autoplot(y) +
+  labs(x = "Month",
+       y = "Turnover (million $AUD)", 
+       title = "Household goods retailing",
+       subtitle = "New South Wales") +
+  theme_minimal()
+```
+
+The time plot shows a clear upward trend and strong seasonality. The seasonal fluctuations become larger as the level of the series increases, indicating that multiplicative seasonality is more appropriate than additive seasonality. The overall variation also increases over time, so multiplicative errors are reasonable. Since the series has a clear upward long-run movement, an additive trend component is appropriate. Therefore, an ETS(M,A,M) model is a suitable choice for forecasting household goods retail turnover in New South Wales.
+
+
+
+### Manual ETS Model Estimation
+```{r}
+
+# Fit the manually selected ETS(M,A,M) model
+fit_MAM <- household_goods_nsw |>
+  model(MAM = ETS(y ~ error("M") + trend("A") + season("M")))
+
+# Show the estimation results.
+report(fit_MAM)
+```
+
+```{r}
+#| warning: false
+#| fig-width: 10
+#| fig-height: 6
+
+# Plot the decomposed components to see how the model captures the series pattern.
+components(fit_MAM) |>
+  autoplot()
+```
+
+The estimated model is ETS(M,A,M), which is consistent with what was observed from the time plot. The level smoothing parameter is moderately large (`alpha = 0.5460`), so the model updates the level fairly quickly when new observations are added. The trend smoothing parameter is very small (`beta = 0.0047`), suggesting that the slope changes only slowly over time. The seasonal smoothing parameter is moderate (`gamma = 0.323`), showing that the seasonal pattern is clear but can still change somewhat over time. The initial seasonal indices are mostly close to 1, as expected for multiplicative seasonality, with some months above and some below the average level. The component plot also shows an upward level, a positive trend and clear recurring seasonality, while the remainder is centred near zero with a few spikes.
+
+
+
+### Manual ETS Residual Diagnostics
+```{r}
+#| fig-width: 10
+#| fig-height: 6
+
+fit_MAM |> gg_tsresiduals() +
+  labs(title = "Residual diagnostics for ETS(M,A,M)")
+```
+
+The residuals are centred near zero, but the variance is not perfectly constant, with larger spikes around 2000 and 2020. The ACF shows several significant spikes, so autocorrelation remains. The histogram is roughly bell-shaped but slightly skewed, so the residuals are not completely random.
+
+```{r}
+
+augment(fit_MAM) |> features(.innov, ljung_box, lag = 24, dof = 16)
+```
+
+For the Ljung–Box test, the null hypothesis is that the residuals are uncorrelated up to lag 24. Using 24 lags and 16 model degrees of freedom gives 8 degrees of freedom. The p-value is very small (< 0.05), so the null hypothesis is rejected. Therefore, some autocorrelation remains and I am not fully satisfied with the fit.
+
+
+
+### Automatic ETS Model Selection
+```{r}
+
+fit_auto <- household_goods_nsw |>
+  model(AUTO = ETS(y))
+
+report(fit_auto)
+```
+
+R automatically selected the ETS(M,Ad,M) model. This means the model uses multiplicative errors, a damped additive trend, and multiplicative seasonality. The model was chosen by fitting a range of candidate ETS models to the data and comparing their information criterion values. In particular, ETS(y) selects the model with the lowest AICc, so the chosen model is the one that gave the best balance between goodness of fit and model complexity among the candidate ETS models.
+
+
+
+### Manual and Automatic ETS Model Comparison
+```{r}
+#| fig-width: 10
+#| fig-height: 6
+
+fit_auto |> gg_tsresiduals() +
+  labs(title = "Residual diagnostics for ETS(M,Ad,M)")
+```
+
+```{r}
+
+augment(fit_auto) |> features(.innov, ljung_box, lag = 24, dof = 17)
+```
+
+**Difference between the two models**
+
+The two models differ only in the trend component. ETS(M,A,M) uses an additive trend, while ETS(M,Ad,M) uses a damped additive trend. Both keep multiplicative error and multiplicative seasonality.
+
+**Which model to choose?**
+
+I would choose ETS(M,Ad,M) because it has lower AIC, AICc and BIC, and its residual diagnostics are slightly better. The Ljung–Box test still rejects the null of no autocorrelation up to lag 24, so neither model is perfect, but ETS(M,Ad,M) is preferred overall.
+
+
+
+### ETS Test-Set Evaluation
+```{r}
+
+# Train set
+hhg_nsw_train <- household_goods_nsw |>
+  slice_head(n = nrow(household_goods_nsw) - 24)
+
+# Test set
+hhg_nsw_test <- household_goods_nsw |>
+  slice_tail(n = 24)
+```
+
+```{r}
+
+fit_both <- hhg_nsw_train |>
+  model(
+    MAM  = ETS(y ~ error("M") + trend("A")  + season("M")),
+    MAdM = ETS(y ~ error("M") + trend("Ad") + season("M"))
+  )
+```
+
+```{r}
+#| fig-width: 10
+#| fig-height: 6
+
+# 2 years forecast 
+fc_both <- fit_both |>
+  forecast(h = 24)
+
+# Plot forecast and prediction intervals
+fc_both |>
+  autoplot(household_goods_nsw, level = c(80, 95)) +
+  geom_line(
+    data = hhg_nsw_test,
+    aes(x = Month, y = y, colour = "Test set"),
+    linewidth = 0.6
+  ) +
+  guides(fill = "none") +
+  labs(
+    title = "Forecasts for the last two years of the sample",
+    x = "Month",
+    y = "Turnover (million $AUD)"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+
+accuracy(fc_both, hhg_nsw_test)
+```
+
+
+MASE and RMSSE are returned as NaN here, so the comparison is based mainly on RMSE, MAE and MAPE. Both models capture the strong trend and seasonality, and most test observations fall within the forecast intervals. However, ETS(M,A,M) performs better on the test set because it has lower RMSE, MAE and MAPE than ETS(M,Ad,M). The forecast plot also shows that ETS(M,A,M) follows the test data more closely. Although ETS(M,Ad,M) was preferred earlier based on in-sample model selection, ETS(M,A,M) performs better on the test set, so it is chosen as the better forecasting model.
+
+
+
+### ETS Forecasts
+```{r}
+
+# Fit the chosen model (M,A,M) to the full sample
+fit_final <- household_goods_nsw |>
+  model(MAM = ETS(y ~ error("M") + trend("A") + season("M")))
+```
+
+```{r}
+#| fig-width: 10
+#| fig-height: 6
+
+# Forecast the next two years
+fc_final <- fit_final |>
+  forecast(h = "2 years")
+
+# Plot forecasts for the next two years
+fc_final |>
+  autoplot(household_goods_nsw, level = c(80, 95)) +
+  labs(
+    title = "Two-year forecasts for household goods retailing in New South Wales",
+    x = "Month",
+    y = "Turnover (million $AUD)"
+  ) +
+  theme_minimal()
+```
+
+The forecasts from ETS(M,A,M) continue to show a strong upward trend and clear seasonality over the next two years. The seasonal peaks and troughs remain pronounced. The shaded areas represent the 80% and 95% prediction intervals, with the wider shaded band showing greater uncertainty. These intervals widen over time, showing increasing uncertainty as the forecast horizon increases. Overall, the model suggests that household goods retail turnover in New South Wales will continue to grow, while maintaining the same seasonal pattern seen in the historical data.
+
+
+## ARIMA Modelling and Final Forecasting
+
+### Transformation and Differencing for ARIMA
+```{r}
+#| message: false
+#| fig-width: 10
+#| fig-height: 6
+
+household_goods_nsw |>
+  autoplot(y) +
+  labs(
+    title = "Original household goods retail turnover",
+    x = "Month",
+    y = "Turnover (million $AUD)"
+  ) +
+  theme_minimal()
+```
+
+The original series shows a strong upward trend and clear monthly seasonality. The size of the seasonal fluctuations increases as turnover rises, so the series does not have stable variance or a stable mean.
+
+**Transformed series**
+
+```{r}
+
+lambda <- household_goods_nsw |>
+  features(y, guerrero) |>
+  pull(lambda_guerrero)
+
+lambda
+```
+Guerrero’s method gives a lambda of 0.345. Since this is not very close to 0, I use the Box-Cox transformation rather than the log transformation. This helps stabilise the increasing seasonal variation before differencing.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 6
+
+household_goods_nsw |>
+  autoplot(box_cox(y, lambda)) +
+  labs(
+    title = "Box-Cox transformed household goods retail turnover",
+    x = "Month",
+    y = "Box-Cox transformed turnover"
+  ) +
+  theme_minimal()
+```
+
+The Box-Cox transformation reduces the increasing seasonal variation, making the fluctuations more stable over time. However, the series still has a clear upward trend and strong yearly seasonality, so the transformed series is not yet stationary and differencing is required.
+
+**Seasonal differencing**
+
+Since the data are monthly and show yearly seasonality, a seasonal difference with lag 12 is applied.
+
+```{r}
+#| warning: false
+#| fig-width: 10
+#| fig-height: 6
+
+household_goods_nsw |>
+  autoplot(box_cox(y, lambda) |> difference(lag = 12)) +
+  labs(
+    title = "Seasonally differenced Box-Cox transformed series",
+    x = "Month",
+    y = "Seasonal difference"
+  ) +
+  theme_minimal()
+```
+
+After seasonal differencing, much of the yearly seasonal pattern has been removed. However, the series still does not fluctuate clearly around a constant level, so a further first difference is applied before fitting an ARIMA model.
+
+**Seasonal and first differencing**
+
+```{r}
+#| warning: false
+#| fig-width: 10
+#| fig-height: 6
+
+household_goods_nsw |>
+  autoplot(box_cox(y, lambda) |> difference(lag = 12) |> difference()) +
+  labs(
+    title = "Seasonally and first differenced Box-Cox transformed series",
+    x = "Month",
+    y = "Differenced Box-Cox turnover"
+  )
+```
+
+After seasonal and first differencing, the series appears approximately stationary, with no clear trend or repeating seasonality. Some large spikes remain, indicating unusual short-term shocks. The 2000–2002 spikes show sharp irregular changes, while the 2020–2023 spikes likely reflect COVID-19-related household spending disruption.
+
+
+
+### ACF/PACF-Based ARIMA Identification
+```{r}
+#| warning: false
+#| fig-width: 10
+#| fig-height: 6
+
+household_goods_nsw |>
+  gg_tsdisplay(
+    box_cox(y, lambda) |> difference(lag = 12) |> difference(),
+    plot_type = "partial",
+    lag_max = 48
+  ) +
+  labs(title = "ACF and PACF of stationary transformed series")
+```
+
+The differenced series fluctuates around zero, so no further differencing is used. The ACF and PACF are messy, but the main noticeable spikes are at lag 1 and the seasonal lag 12. Since first and seasonal differencing have already been applied, I choose ARIMA(0,1,1)(0,1,1)[12], or ARIMA(0,1,1) with a seasonal MA(1) term, as the initial model.
+
+
+
+### Initial ARIMA Residual Diagnostics
+```{r}
+
+fit_q2 <- household_goods_nsw |>
+  model(
+    arima_q2 = ARIMA(
+      box_cox(y, lambda) ~ pdq(0, 1, 1) + PDQ(0, 1, 1)
+    )
+  )
+
+report(fit_q2)
+```
+```{r}
+#| fig-width: 10
+#| fig-height: 6
+
+fit_q2 |> gg_tsresiduals()
+```
+
+```{r}
+
+augment(fit_q2) |> features(.innov, ljung_box, lag = 24, dof = 2)
+```
+
+The residuals are mostly centred around zero, but large spikes remain around 2000–2002 and 2020–2023. The residual ACF has significant spikes and the histogram has heavier tails. The Ljung–Box p-value is below 0.05, so I reject the null hypothesis of no residual autocorrelation. Therefore, the Q2 model should be reviewed.
+
+
+
+### Manual ARIMA Model Comparison
+The ACF/PACF suggested short-term and seasonal dependence, so the initial model included non-seasonal and seasonal MA terms. Because the initial ARIMA residuals still showed autocorrelation, I considered nearby models with additional AR or MA terms. The same Box-Cox transformation and differencing orders are kept to allow fair comparison using information criteria.
+
+Model justification:
+
+- `arima_011_011`: initial model from the ACF/PACF inspection, based on ACF spikes at lag 1 and lag 12.
+- `arima_111_011`: adds AR(1) because PACF also shows early-lag spikes.
+- `arima_012_011`: adds an extra MA term because the initial ARIMA residuals still showed autocorrelation.
+- `arima_011_111`: adds seasonal AR(1) because PACF shows a strong spike at lag 12.
+- `arima_111_111`: allows both non-seasonal and seasonal AR/MA terms to capture remaining autocorrelation.
+
+```{r}
+
+fit_q4 <- household_goods_nsw |>
+  model(
+    arima_011_011 = ARIMA(box_cox(y, lambda) ~ pdq(0,1,1) + PDQ(0,1,1)),
+    arima_111_011 = ARIMA(box_cox(y, lambda) ~ pdq(1,1,1) + PDQ(0,1,1)),
+    arima_012_011 = ARIMA(box_cox(y, lambda) ~ pdq(0,1,2) + PDQ(0,1,1)),
+    arima_011_111 = ARIMA(box_cox(y, lambda) ~ pdq(0,1,1) + PDQ(1,1,1)),
+    arima_111_111 = ARIMA(box_cox(y, lambda) ~ pdq(1,1,1) + PDQ(1,1,1))
+  )
+
+fit_q4 |>
+  glance() |>
+  arrange(AICc) |>
+  select(.model, AIC, AICc, BIC)
+
+```
+
+Based on AICc, `arima_012_011`, or ARIMA(0,1,2)(0,1,1)[12], is selected as the best model among the alternatives considered. It also has the lowest AIC and BIC, which supports this choice. Compared with the initial ARIMA model, this suggests that adding an extra non-seasonal MA term improves the model fit.
+
+
+
+### Automatic ARIMA Model Selection
+```{r}
+
+# Auto search for ARIMA model
+fit_auto_default <- household_goods_nsw |>
+  model(auto_default = ARIMA(box_cox(y, lambda)))
+
+# Make ARIMA() search harder
+fit_auto_harder <- household_goods_nsw |>
+  model(
+    auto_harder = ARIMA(
+      box_cox(y, lambda),
+      stepwise = FALSE,
+      approximation = FALSE
+    )
+  )
+
+fit_auto_default |> report()
+fit_auto_harder |> report()
+```
+
+```{r}
+#| fig-width: 10
+#| fig-height: 6
+
+fit_auto_harder |> gg_tsresiduals()
+```
+
+```{r}
+
+augment(fit_auto_harder) |>
+  features(.innov, ljung_box, lag = 24, dof = 4)
+```
+
+The harder automatic search selected ARIMA(3,0,0)(0,1,1)[12] with drift, while the Q4 model was ARIMA(0,1,2)(0,1,1)[12]. The automatic model uses non-seasonal AR terms and only seasonal differencing, so it captures short-term dependence through past values rather than through first differencing and MA terms. It has a lower AICc, but because the differencing order is different, AICc is not a fair basis for final model selection. The residuals are mostly centred around zero, but some large spikes remain. The residual ACF still has significant spikes and the Ljung–Box p-value is below 0.05, so the residuals are not fully white noise.
+
+
+
+### ARIMA Test-Set Evaluation
+```{r}
+
+# Split data to train set
+hhg_nsw_tr <- household_goods_nsw %>%
+  slice(1:(n() - 24))
+
+# Split last two years' data to test set
+hhg_nsw_ts <- household_goods_nsw %>%
+  slice((n() - 23):n())
+```
+
+```{r}
+
+fit_q6 <- hhg_nsw_tr |>
+  model(
+    manual_q4 = ARIMA(box_cox(y, lambda) ~ pdq(0,1,2) + PDQ(0,1,1)),
+    auto_hard_q5 = ARIMA(box_cox(y, lambda) ~ 1 + pdq(3,0,0) + PDQ(0,1,1))
+  )
+```
+
+```{r}
+
+fc_q6 <- fit_q6 |>
+  forecast(new_data = hhg_nsw_ts)
+```
+
+```{r}
+
+fc_q6 |> accuracy(household_goods_nsw)
+```
+
+I select the manual Q4 ARIMA(0,1,2)(0,1,1)[12] for forecasting because it has lower RMSE, MAE, MAPE, MASE and RMSSE on the 24-month test set. AICc was used within Q4 because models had the same differencing orders, but Q4 and Q5 differ in non-seasonal differencing.
+
+
+
+### ARIMA Forecasts
+```{r}
+#| fig-width: 10
+#| fig-height: 6
+
+
+# Fit selected ARIMA(0,1,2)(0,1,1)[12] model on full sample
+fit_q7 <- household_goods_nsw |>
+  model(
+    arima_012_011 = ARIMA(box_cox(y, lambda) ~ pdq(0,1,2) + PDQ(0,1,1))
+  )
+
+# Forecast the next two years
+fc_q7 <- fit_q7 |>
+  forecast(h = "2 years")
+
+# Plot forecasts for the next two years
+fc_q7 |>
+  autoplot(household_goods_nsw, level = c(80, 95)) +
+  labs(
+    title = "Two-year forecasts for household goods retailing in New South Wales",
+    x = "Month",
+    y = "Turnover (million $AUD)"
+  ) +
+  theme_minimal()
+```
+
+The ARIMA forecasts continue the upward movement in household goods turnover and preserve the strong yearly seasonal pattern. The prediction intervals widen over the two-year horizon, showing increasing uncertainty. Although the forecasts look reasonable, they should be interpreted cautiously because residual diagnostics showed some remaining autocorrelation.
+
+
+
+### Updated ABS Data and Post-COVID Pattern
+```{r}
+
+# Read ABS Table 11
+abs_raw <- read_excel("ABS_retail_trade_table11.xlsx", sheet = "Data1", skip = 9)
+
+# Clean the updated Household goods NSW series
+hhg_nsw_abs <- abs_raw |>
+  rename(Month_serial = 1) |>
+  select( Month_serial,
+          y = A3349397X
+          ) |>
+  mutate( Month = yearmonth(as.Date(Month_serial, 
+                                    origin = "1899-12-30"))
+          ) |>
+  select(Month, y) |>
+  as_tsibble(index = Month)
+
+# Combine old data with new ABS rows
+household_goods_nsw_updated <- hhg_nsw_abs |>
+  arrange(Month) |>
+  as_tsibble(index = Month)
+```
+
+```{r}
+#| fig-width: 10
+#| fig-height: 6
+
+household_goods_nsw_updated |>
+  autoplot(y) +
+  geom_vline(
+    xintercept = yearmonth("2023 Jun"),
+    linetype = "dashed",
+    color = "red"
+  ) +
+  labs(
+    title = "Updated household goods retail turnover in New South Wales",
+    subtitle = "Dashed line shows the end of the original sample",
+    x = "Month",
+    y = "Turnover (million $AUD)"
+  ) +
+  theme_minimal()
+```
+
+The updated time series still shows an upward trend with clear yearly seasonality. During the COVID period, turnover increased sharply and became more volatile. After the COVID spending surge, turnover might be expected to slow or fall as spending patterns normalised, but the updated data remains above the pre-COVID level. Instead, it stays at a higher level, although the movement is more uneven.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 6
+
+household_goods_nsw_updated |>
+  gg_season(y) +
+  labs(
+    title = "Seasonal plot of updated household goods retail turnover",
+    subtitle = "New South Wales",
+    x = "Month",
+    y = "Turnover (million $AUD)"
+  ) +
+  theme_minimal()
+```
+
+The seasonal plot also shows that recent years are higher than earlier years in most months. The post-COVID years have stronger seasonal peaks, especially near the end of the year. This supports the time series plot, where COVID did not create a sustained decline, but the series moved to a higher and more volatile level.
+
+Household goods turnover may not have fallen back to the pre-COVID level because spending patterns changed during the pandemic. More time at home, working from home, furniture purchases, home improvement, and replacement of household items may have supported demand. However, this is only a possible explanation from the series movement, not a causal conclusion.
+
+
+
+### Forecast Comparison on Updated Data
+```{r}
+
+# Training data up to the end of 2022
+hhg_tr_2022 <- household_goods_nsw_updated |>
+  filter_index(. ~ "2022 Dec")
+
+# Post-2022 as test data
+hhg_ts_2022 <- household_goods_nsw_updated |>
+  filter_index("2023 Jan" ~ .)
+```
+
+```{r}
+
+# Fit all best benchmark, ETS and ARIMA models
+fit_q9 <- hhg_tr_2022 |>
+  model(
+    Benchmark_SNAIVE = SNAIVE(box_cox(y, lambda)),
+    ETS_MAM = ETS(y ~ error("M") + trend("A") + season("M")),
+    ARIMA_012_011 = ARIMA(box_cox(y, lambda) ~ pdq(0,1,2) + PDQ(0,1,1))
+  )
+```
+
+```{r}
+
+fc_q9 <- fit_q9 |>
+  forecast(new_data = hhg_ts_2022)
+```
+
+```{r}
+#| fig-width: 10
+#| fig-height: 6
+
+# Recent data from 2020 onward
+recent_data <- household_goods_nsw_updated |>
+  filter_index("2020 Jan" ~ .)
+
+# Order models for clearer plotting
+fc_q9_ordered <- fc_q9 |>
+  mutate(
+    .model = factor(
+      .model,
+      levels = c("Benchmark_SNAIVE", "ETS_MAM", "ARIMA_012_011"))
+  )
+
+# Forecast comparison plot
+fc_q9_ordered |>
+  autoplot(recent_data, level = c(80, 95)) +
+  geom_line(data = hhg_ts_2022,
+            aes(x = Month, y = y, color = "Observed post-2022"),
+                linewidth = 1.15
+            ) +
+  labs(title = "Post-2022 forecasts from benchmark, ETS and ARIMA models",
+       subtitle = "Recent data shown from January 2020 onward",
+       x = "Month",
+       y = "Turnover (million $AUD)"
+       ) +
+  guides(fill = "none") +
+  theme_minimal()
+```
+
+The models were compared using their assumptions, visual forecast performance and prediction intervals. Seasonal naïve assumes each future month follows the same month from the previous year and visually tracks the observed post-2022 data most closely. ETS(M,A,M) captures trend and multiplicative seasonality, but forecasts slightly higher in several months. ARIMA captures autocorrelation after transformation and differencing, but tends to over-forecast around some peaks. The prediction intervals are wider around seasonal peaks, showing greater uncertainty when turnover is high.
+
+
+
+### Post-2022 Accuracy Evaluation
+```{r}
+
+fc_q9 |> accuracy(household_goods_nsw_updated)
+```
+
+The Seasonal naïve benchmark is the most accurate model over the post-2022 period, with the lowest RMSE, MAE, MAPE, MASE and RMSSE. ETS(M,A,M) is the second best, while ARIMA has the largest errors. All ME values are negative, meaning all models over-forecast on average, but Seasonal naïve has the smallest forecast bias.
+
+
+
+### Final 24-Month Forecasts
+```{r}
+
+fit_q11 <- household_goods_nsw_updated |>
+  model(
+    Benchmark_SNAIVE = SNAIVE(box_cox(y, lambda)),
+    ETS_MAM = ETS(y ~ error("M") + trend("A") + season("M")),
+    ARIMA_012_011 = ARIMA(box_cox(y, lambda) ~ pdq(0,1,2) + PDQ(0,1,1))
+  )
+```
+
+```{r}
+
+# Forecast the next two years
+fc_q11 <- fit_q11 |>
+  forecast(h = "24 months")
+```
+
+```{r}
+#| fig-width: 10
+#| fig-height: 6
+
+# Recent data for clearer visualisation
+recent_updated <- household_goods_nsw_updated |>
+  filter_index("2020 Jan" ~ .)
+
+# Order model facets
+fc_q11_ordered <- fc_q11 |>
+  mutate(
+    .model = factor(
+      .model,
+      levels = c("Benchmark_SNAIVE", "ETS_MAM", "ARIMA_012_011")
+    )
+  )
+
+# Plot forecasts
+fc_q11_ordered |>
+  autoplot(recent_updated, level = c(80, 95)) +
+  labs(
+    title = "Next 24-month forecasts from benchmark, ETS and ARIMA models",
+    subtitle = "Models fitted using the full updated series",
+    x = "Month",
+    y = "Turnover (million $AUD)"
+  ) +
+  guides(fill = "none") +
+  theme_minimal()
+```
+
+The three models all forecast a strong yearly seasonal pattern, with clear peaks and troughs continuing over the next 24 months. This is reasonable because the updated series still shows strong seasonality after COVID-19. The Seasonal naïve benchmark repeats the most recent seasonal pattern, assuming future months behave like the same months in the previous year. This is suitable here because the post-2022 accuracy evaluation showed it had the lowest RMSE, MAE, MAPE, MASE and RMSSE. ETS(M,A,M) and ARIMA(0,1,2)(0,1,1)[12] produce similar seasonal forecasts, but ETS allows changing level, additive trend and multiplicative seasonality, while ARIMA models autocorrelation after transformation and differencing. ETS gives wider intervals when seasonal peaks are large, while ARIMA appears slightly smoother. Overall, the models have handled the post-COVID pattern reasonably well because they continue the higher post-COVID seasonal structure, but the wide intervals show future turnover is still uncertain after the large COVID-period movements.
+
+
+
+
+## Overall Conclusion
+
+The complete workflow shows that NSW household goods retail turnover has a strong upward trend and clear yearly seasonality. Seasonal variation increases as the level of turnover rises, so transformation and careful model evaluation are important. Benchmark, ETS, and ARIMA models each provide useful perspectives: benchmark models offer a simple baseline, ETS models capture trend and seasonality directly, and ARIMA models model autocorrelation after transformation and differencing. The updated post-COVID data indicates that turnover remained at a higher and more volatile level than before the pandemic, making ongoing model evaluation important.

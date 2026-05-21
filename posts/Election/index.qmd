@@ -1,0 +1,29 @@
+---
+title: "Election Data Analysis Project"
+description: "Analysis of independent candidate support in the 2019 and 2022 Australian federal elections."
+date: "2025-04-23"
+categories: [Data Analysis, Visualisation, Election]
+---
+
+## Overview
+
+This project analysed changes in voter support for independent and minor party candidates between the 2019 and 2022 Australian federal elections. The analysis combined election results, demographic classifications, and census data to explore voting shifts, geographic patterns, and the demographic profile of North Sydney.
+
+## What I Did
+
+- Combined and cleaned Australian federal election results from 2019 and 2022.
+- Identified independent-held and newly independent-won electorates.
+- Compared first-round vote changes for independents and minor parties.
+- Analysed geographic patterns using metropolitan, provincial, and rural classifications.
+- Used census data to examine age, gender, income, rent, and household characteristics in North Sydney.
+- Created visualisations to communicate voting and demographic patterns.
+
+## Key Findings
+
+Independent candidates increased their seat count in 2022, with several new wins in electorates previously held by major parties. Support for independents and minor parties increased across most electorates, with stronger shifts in some metropolitan areas. North Sydney showed a high-income, high-rent demographic profile compared with broader NSW electorates.
+
+## Key Takeaway
+
+This project strengthened my ability to combine public datasets, apply data cleaning and transformation, create visualisations, and communicate political and demographic insights clearly.
+
+[View full report](election.html)

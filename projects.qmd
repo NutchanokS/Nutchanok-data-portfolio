@@ -1,0 +1,40 @@
+---
+title: "Selected Projects"
+subtitle: "Selected data analytics, visualisation, and storytelling work"
+page-layout: full
+title-block-banner: true
+---
+
+::: {.project-grid}
+
+::: {.project-card}
+### [SQL and Database Design Projects](posts/sql/index.html)
+
+Designed and implemented relational database solutions using Oracle SQL, including ERD modelling, normalisation, schema creation, data population, DML transactions, reporting queries, and JSON/MongoDB query outputs.
+:::
+
+::: {.project-card}
+### [Election Data Analysis Project](posts/Election/index.html)
+
+Analysed Australian election data to explore changes in voter support for independent candidates, using visualisation and geographic analysis to communicate voting pattern changes.
+:::
+
+::: {.project-card}
+### [Time Series Forecasting Project](posts/Bus_Fore/index.html)
+
+Forecasted NSW household goods retail turnover using benchmark, ETS, and ARIMA models, with train/test evaluation, residual diagnostics, post-COVID data updates, and 24-month forecast interpretation.
+:::
+
+::: {.project-card}
+### [Australian Time Use Data Analysis](posts/time-use/index.html)
+
+Analysed Australian time-use survey data to explore leisure, social interaction, gender differences, and generational patterns using data cleaning, visualisation, uncertainty measures, and historical comparison.
+:::
+
+::: {.project-card}
+### [Beyond the Expensive Sensor](posts/Nitrate_In_River/index.html)
+
+A data storytelling article explaining nonlinear nitrate relationships across diverse watersheds.
+:::
+
+:::

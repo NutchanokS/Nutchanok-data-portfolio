@@ -1,0 +1,32 @@
+---
+title: "Australian Time Use Data Analysis"
+description: "Exploring leisure, social interaction, gender differences, and generational time-use patterns in Australia."
+date: "2025-09-24"
+categories: [Data Exploration, Visualisation, Time Use]
+---
+
+## Overview
+
+This project analysed Australian Bureau of Statistics time-use data to explore how Australians spend time across leisure, social interaction, recreation, education, and other daily activities. The analysis combined recent 2022 data with historical survey data from 1992, 1997, and 2006.
+
+## What I Did
+
+- Cleaned and reshaped ABS Excel tables into tidy long-format datasets.
+- Joined multiple survey tables into one structured dataset for analysis.
+- Converted time-use variables into numeric minutes for comparison.
+- Checked missing values and applied targeted imputation where needed.
+- Compared participation rates across generation, sex, and activity type.
+- Used visualisations with uncertainty measures such as margin of error and relative standard error.
+- Analysed historical changes in Australian time use between 1992 and 2006.
+
+## Key Findings
+
+The analysis showed that participation in social and community interaction and recreation was broadly similar across generations, with differences often uncertain once margins of error were considered. Gender differences in social interaction were more visible in participation rates than in time spent. For exercise, sport, and outdoor activity, engagement followed more of a life-stage pattern than a simple age-related decline.
+
+The historical analysis showed that personal care remained the largest and most stable use of time, while changes appeared in paid work, domestic activities, child care, education, leisure, and social interaction.
+
+## Key Takeaway
+
+This project strengthened my ability to clean complex Excel-based survey data, build reproducible analysis workflows, create clear visualisations, and communicate uncertainty in data interpretation.
+
+[View full report](time-use-report.html)

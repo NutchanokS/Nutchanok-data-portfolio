@@ -1,0 +1,833 @@
+---
+title: "Australian Time Use Data Analysis"
+author: "Nutchanok Saitin"
+quarto-required: ">=1.3.0"
+format:
+    html: 
+        output-file: assign03-submission.html
+        css: "assignment.css"
+        embed-resources: true
+---
+
+```{r}
+#| echo: false
+# Set up chunk for all slides
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.height = 4,
+  fig.align = "center",
+  out.width = "100%",
+  code.line.numbers = FALSE,
+  fig.retina = 4,
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  cache = FALSE,
+  dev.args = list(pointsize = 11)
+)
+```
+
+```{r}
+#| echo: false
+# Load libraries
+library(tidyverse)
+library(conflicted)
+
+conflicts_prefer(dplyr::filter)
+conflicts_prefer(dplyr::select)
+conflicts_prefer(dplyr::slice)
+
+# Plot options and themes
+options(
+  digits = 2,
+  width = 60,
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis",
+  ggplot2.discrete.colour = c("#D55E00", "#0072B2", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#F0E442"),
+  ggplot2.discrete.fill = c("#D55E00", "#0072B2", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#F0E442")
+)
+
+theme_set(theme_bw(base_size = 14) +
+   theme(
+     aspect.ratio = 1,
+     plot.background = element_rect(fill = 'transparent', colour = NA),
+     plot.title.position = "plot",
+     plot.title = element_text(size = 24),
+     panel.background = element_rect(fill = 'transparent', colour = NA),
+     legend.background = element_rect(fill = 'transparent', colour = NA),
+     legend.key = element_rect(fill = 'transparent', colour = NA)
+   )
+)
+```
+
+## Background: Published Claims About Reading Behaviour
+
+The three articles offer contrasting interpretations of reading trends in Australia. Article (1) by *ABC News* (2025, July 14) reported an apparent decline in young men’s reading, citing ABS survey data showing only 10.1% of males aged 15–24 read on a given day. Article (2), an opinion piece in *The Age* (Jack, 2025, July 21), built on the same figures, attributing the decline to cultural shifts such as podcasts, streaming, and publishing practices. Both accounts correctly identified that young men had the lowest reading participation, but their framing was overstated, as they relied narrowly on a single dataset and emphasised a gender gap without considering survey limitations such as the exclusion of online reading.
+
+In contrast, Article (3) from *The Guardian* (Evershed, 2025, August 17) provided a broader and more balanced view. The ABS plots showed that young men had the lowest daily reading participation. However, the overlapping confidence intervals indicated that male and female rates were statistically similar in most generations, except for Gen X. It also drew on multiple datasets (ABS, NAPS, HILDA), discussed survey definitions, and showed that reading had declined across both genders. Therefore, while Articles (1) and (2) presented a striking narrative, Article (3) provides the most accurate and appropriate summary of the evidence.
+
+## 2022 Time Use Data Exploration
+
+### Research Questions
+
+From `ABS_leisure_2022.xlsx` file, three interesting questions can be explored as follows:
+
+1.  Are younger generations more likely to participate in social and community engagement activities compared to recreation and leisure activities?
+2.  Do men and women spend their time differently when it comes to social and community interaction?
+3.  Does aging affect how much people engage in sports and outdoor activities?
+
+### Data Preparation
+
+1.  All tables in `ABS_leisure_2022.xlsx` were reviewed to determine their relevance to the research questions. Tables 1.1 to 1.6 were selected as the primary sources for analysis.
+2.  Created function to read data from each Excel worksheet into R and inspect the structure of the imported tables.
+
+```{r load table}
+#| code-fold: true
+#| warning: false
+#| message: false
+#| output: false
+
+# Load libraries
+library(readxl)     
+library(here)
+
+# Create function to read-in selected table from the ABS_leisure_2022.xlsx
+load_abs_sheet <- function(sheet_name) {
+  read_excel(
+    here::here("data", "ABS_leisure_2022.xlsx"),
+    sheet = sheet_name,
+    skip = 4,             # Data start at row 5    
+    col_names = TRUE
+  ) |>
+    rename(activity = 1)  # name first column as "activity"
+}
+
+# Define table names corresponding to each worksheet to be imported
+table_names <- paste0("Table 1.", 1:6)
+
+# Load all worksheets listed in 'table_names' using above function 'load_abs_sheet'
+tables <- lapply(table_names, load_abs_sheet)
+
+# Assign names t1 to t6 and export each table as a separate data frame to the global environment
+names(tables) <- paste0("t", 1:6)
+list2env(tables, envir = .GlobalEnv)
+
+# Check data structure
+lapply(tables, dplyr::glimpse)
+```
+
+3.  Created a tidying function to transform each dataset into a consistent structure with five key variables: `main_activity`, `sub_activity`, `age_group`, `sex`, and `value`.
+
+```{r tidy table}
+#| code-fold: true
+#| warning: false
+#| message: false
+#| output: false
+
+# Create function to transform each dataset into a consistent structure
+tidy_abs_sheet <- function(df) {
+
+  # Extracts the first row of the data frame (excluding the first column),
+  # flattens it into a vector, and converts all values to character type.
+  sex_row <- df[1, -1] |> 
+    unlist() |> 
+    as.character()
+  
+  # Extract column names from df (excluding the first column), using a zero-row slice
+  age_groups <- df[0, -1] |> 
+    colnames()  # retrieve original column names from Excel-imported data frame
+  age_groups <- colnames(df)[-1]
+  
+  # Rename columns: first column becomes "activity", 
+  # others show age group and sex 
+  new_names <- c("activity", paste(age_groups, sex_row, sep = " - "))
+  colnames(df) <- new_names
+  
+  # Drop the first row
+  df <- df[-1, ]
+  
+  # Clean and reshape data
+  # - Filter out NA and header-like rows
+  # - Rename and classify activities into main/sub categories
+  # - Pivot age-sex columns into long format
+  # - Separate age group and sex, clean missing labels
+  # - Select relevant columns and exclude summary rows
+
+  df |>
+    filter(!is.na(activity), activity != "Primary activity") |>   
+    rename(sub_activity = activity) |>
+    mutate(
+      main_activity = if_else(sub_activity %in% c("Free time",
+                                                  "Social and community interaction",
+                                                  "Recreation and leisure"),
+                              sub_activity, NA_character_)
+    ) |>
+    fill(main_activity, .direction = "down") |>
+    pivot_longer(-c(sub_activity, main_activity),
+                 names_to = "age_sex", values_to = "value") |>
+    separate(age_sex, into = c("age_group", "sex"), sep = " - ") |>
+    mutate(age_group = ifelse(grepl("^\\.\\.+", age_group), NA, age_group)) |>
+    fill(age_group, .direction = "down") |>
+    select(main_activity, sub_activity, age_group, sex, value) |>
+    filter(!str_detect(tolower(sub_activity), "total|cells in|commonwealth"))
+}
+
+# Tidy all dataset listed in 'tables' using above function 'tidy_abs_sheet'
+tidy_tables <- lapply(tables, tidy_abs_sheet)
+
+# Assign names tidy_t1 to tidy_t6 and export each table as a separate data frame to the global environment
+names(tidy_tables) <- paste0("tidy_t", 1:6)
+list2env(tidy_tables, envir = .GlobalEnv)
+```
+4.  Renamed the `value` column in each table to descriptive names:
+- `participant_proportion` (Table 1.1)
+- `margin_of_error` (Table 1.2)
+- `avg_time_perday_participant` (Table 1.3)
+- `par_rse_percent` (Table 1.4)
+- `avg_time_perday_population` (Table 1.5)
+- `pop_rse_percent` (Table 1.6)
+
+```{r rename value}
+#| code-fold: true
+
+# Renamed the value column
+tidy_t1 <- tidy_t1 |> rename(participant_proportion = value)
+tidy_t2 <- tidy_t2 |> rename(margin_of_error = value)
+tidy_t3 <- tidy_t3 |> rename(avg_time_perday_participant = value)
+tidy_t4 <- tidy_t4 |> rename(par_rse_percent = value)
+tidy_t5 <- tidy_t5 |> rename(avg_time_perday_population = value)
+tidy_t6 <- tidy_t6 |> rename(pop_rse_percent = value)
+```
+
+5.  Joined all six tidy tables into a single dataset using common keys (`main_activity`, `sub_activity`, `age_group`, `sex`), and checked for missing values and inspected data structure.”
+
+```{r join table, check missing}
+#| code-fold: true
+
+# Create a list of tidy tables (t1–t6) that hold different statistics 
+tidy_list <- list(t1 = tidy_t1, t2 = tidy_t2, t3 = tidy_t3,
+                  t4 = tidy_t4, t5 = tidy_t5, t6 = tidy_t6)
+
+# Join all tables into one dataset using common keys
+# (main_activity, sub_activity, age_group, sex)
+combine_table_2022 <- reduce(tidy_list, left_join, by = c("main_activity", "sub_activity", "age_group", "sex"))
+
+# Load naniar package to visualise missing data
+library(naniar)
+
+# Visualise missingness
+vis_miss(combine_table_2022) + 
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Inspect data structure
+glimpse(combine_table_2022)
+```
+
+6. Data preparation and targeted imputation  
+- Converted numeric-like fields (`participant_proportion`, `margin_of_error`, `par_rse_percent`, `pop_rse_percent`) from character to numeric.
+
+```{r convert numeric}
+#| code-fold: true
+
+combine_table_2022 <- combine_table_2022 |>
+  mutate(across(c(5:6, 8, 10), as.numeric))
+```
+
+- Converted average-time-per-day fields (`avg_time_perday_participant`, `avg_time_perday_population`) from "HH:MM" to minutes (stored as *_min; originals retained for audit).
+
+```{r convert mins}
+#| code-fold: true
+
+# Load lubridate for handling time data
+library(lubridate)
+
+# Convert average-time-per-day variables from "hh:mm" format to numeric minutes
+combine_table_2022 <- combine_table_2022 |>
+  mutate(avg_time_perday_participant_min = period_to_seconds(hm(avg_time_perday_participant)) / 60,
+         avg_time_perday_population_min = period_to_seconds(hm(avg_time_perday_population)) / 60
+         )
+```
+
+- Imputed two Male `pop_rse_percent` NAs noted as “not available for publication” by ABS:
+
+  - Generation Z × Playing games and puzzles × Males
+  - Millennials × Listening to music, radio, podcast × Males
+
+using the mean of the corresponding Females and Persons values within the same activity × generation. No other cells altered.
+
+- Added imputed_flag (1 = imputed, 0 = original) for transparency and sensitivity checks.
+Code
+
+```{r impute NA}
+#| code-fold: true
+
+# Compute Females + Persons mean for the two specific activity × generation combos
+impute <- combine_table_2022 |>
+  filter(sex %in% c("Females","Persons"),
+         str_detect(age_group, "Generation Z|Millennials"),
+         sub_activity %in% c("Playing games and puzzles",
+                        "Listening to music, radio, podcast")
+        ) |>
+  group_by(age_group, sub_activity) |>
+  summarise(fp_mean = mean(pop_rse_percent, na.rm = TRUE), .groups = "drop")
+
+# Impute only Male NAs for those two cells
+combine_table_2022 <- combine_table_2022 |>
+  left_join(impute, by = c("age_group", "sub_activity")) |>
+  mutate(
+    # flag only the Male cells that are NA and have an fp_mean available
+    imputed_flag = if_else(sex == "Males" & is.na(pop_rse_percent) & !is.na(fp_mean), 1, 0),
+    # impute only those flagged Male NA cells 
+    pop_rse_percent = ifelse(is.na(pop_rse_percent), fp_mean, pop_rse_percent)
+    ) |>
+  select(-fp_mean)
+```
+
+- Recheck missingness and confirm final data structure
+
+```{r recheck missingness and structure}
+#| code-fold: true
+
+# Visualise missingness
+vis_miss(combine_table_2022) + 
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Inspect data structure
+glimpse(combine_table_2022)
+```
+
+### Generational Differences in Social and Leisure Activities
+
+**Are younger generations more likely to participate in social and community engagement activities compared to recreation and leisure activities?**
+
+The analysis used the Persons population. For each generation, participation was summarised for Social & community interaction and Recreation & leisure by averaging the participation proportions across their sub-activities. 
+
+Uncertainty was represented using a conservative margin of error (MoE), calculated as the root-mean-square (RMS) of sub-activity MoEs. Interpretation relied on visual inference: differences were considered clear when the ±MoE ranges did not overlap and uncertain when they did.
+
+```{r q1}
+#| code-fold: true
+
+# Create function for conservative combination of MoE across sub-activities
+rms <- function(x) sqrt(mean(x^2, na.rm = TRUE))
+
+# Fix generation order 
+gen_order <- c(
+  "Generation Z (15-24 years)",
+  "Millennials (25-39 years)",
+  "Generation X (40-54 years)",
+  "Baby Boomers (55-74 years)",
+  "Interwar (75 years and over)"
+)
+
+# Prepare data for Q1 plot
+q1 <- combine_table_2022 |>
+  filter(sex == "Persons",
+         main_activity %in% c("Social and community interaction", "Recreation and leisure")) |>
+  group_by(age_group, main_activity) |>
+  summarise(
+    prop = mean(participant_proportion, na.rm = TRUE),
+    moe  = rms(margin_of_error),
+    .groups = "drop"
+  ) |>
+  mutate(
+    age_group = fct_relevel(age_group, gen_order),
+    ymin = pmax(0, prop - moe),
+    ymax = pmin(100, prop + moe)
+  )
+```
+
+The participation proportions and their associated margins of error can be visualised as follows.
+
+```{r q1 plot}
+#| code-fold: true
+#| label: fig-q1-bar
+#| fig-cap: "Participation rates in Social & community interaction and Recreation & leisure, by generation (Persons). Error bars show ±RMS margin of error across sub-activities."
+#| fig-width: 8
+#| fig-height: 4.6
+
+# Relabel generations more concisely
+gen_labels <- c(
+  "Generation Z (15-24 years)" = "Gen Z (15–24)",
+  "Millennials (25-39 years)"  = "Millennials (25–39)",
+  "Generation X (40-54 years)" = "Gen X (40–54)",
+  "Baby Boomers (55-74 years)" = "Baby Boomers (55–74)",
+  "Interwar (75 years and over)" = "Interwar (75+)"
+)
+
+# Plot Q1
+ggplot(q1, aes(x = age_group, 
+               y = prop, 
+               fill = main_activity)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  scale_fill_manual(values = c("Recreation and leisure" = "pink", "Social and community interaction" = "royalblue")) +
+  geom_errorbar(
+    aes(ymin = ymin, 
+        ymax = ymax),
+    position = position_dodge(width = 0.8),
+    width = 0.25,
+    linewidth = 0.5
+  ) +
+  scale_x_discrete(labels = gen_labels) +
+  labs(
+    title = "Generational Differences in Time Use",
+    subtitle = "Participation in Social & Community Interaction vs Recreation & Leisure (Persons, 2022)",
+    x = NULL,
+    y = "Participation rate (%)",
+    fill = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    axis.text.x = element_text(angle = 30, hjust = 1)
+  )
+```
+
+Participation in Social & community interaction and Recreation & leisure shows only modest variation across generations. Among younger cohorts, Generation Z are slightly more engaged in Recreation & leisure, while Millennials lean marginally toward Social & community interaction. For Generation X, participation levels are almost identical, whereas older cohorts (Baby Boomers and Interwar) show somewhat higher engagement in Recreation & leisure. However, because error bars overlap in all cases, these differences remain uncertain. To clarify whether any generational gaps are statistically meaningful, it is useful to examine a difference plot that focuses directly on Social minus Recreation.
+
+```{r q1 diff}
+#| code-fold: true
+
+# Compute Social − Recreation with MoE for the difference 
+q1_diff <- q1 |>
+  # make pivot-safe keys
+  mutate(main_activity = str_replace_all(main_activity, " ", "_")) |>
+  select(age_group, main_activity, prop, moe) |>
+  pivot_wider(
+    names_from = main_activity, 
+    values_from = c(prop, moe)
+  ) |>
+  mutate(
+    age_group = fct_relevel(age_group, gen_order),
+    diff     = prop_Social_and_community_interaction - prop_Recreation_and_leisure,
+    moe_diff = sqrt(moe_Social_and_community_interaction^2 + moe_Recreation_and_leisure^2)
+  )
+```
+
+```{r q1 diff plot}
+#| code-fold: true
+#| label: fig-q1-diff-bar
+#| fig-cap: "Difference in participation (Social − Recreation) by generation (Persons). Bars show Social minus Recreation; error bars are ±sqrt(MoE_social^2 + MoE_recreation^2). Error bars crossing zero indicate uncertain differences."
+#| fig-width: 7
+#| fig-height: 4.4
+
+ggplot(q1_diff, aes(x = age_group, 
+                    y = diff)) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_col(width = 0.6) +
+  geom_errorbar(aes(ymin = diff - moe_diff, 
+                    ymax = diff + moe_diff), width = 0.22, linewidth = 0.5) +
+  scale_x_discrete(labels = gen_labels) +
+  labs(
+    title = "Social minus Recreation: Participation Difference by Generation",
+    subtitle = "positive = higher Social & Community Interaction",
+    x = NULL,
+    y = "Difference (percentage points)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+Across all generations, differences between Social & community interaction and Recreation & leisure are modest and statistically uncertain, as every error bar crosses the zero line. This means we cannot claim with confidence that one activity consistently dominates the other for any generation.
+
+**Conclusion**
+
+The bar chart (@fig-q1-bar) and the difference plot (@fig-q1-diff-bar) show that participation in Social & community interaction and Recreation & leisure is broadly similar across all generations. While small shifts are visible, with Generation Z and older cohorts leaning toward Recreation & leisure and Millennials toward Social & community interaction, but these differences are modest and statistically uncertain once margins of error are considered. Overall, the evidence does not support the claim that younger generations are more likely to engage in Social & community interaction than in Recreation & leisure.
+
+### Gender Differences in Social and Community Interaction
+
+**Do men and women spend their time differently when it comes to social and community interaction?**
+
+The analysis focused on Social & community interaction activities. For each sub-activity, participation proportions were summarised separately for men and women, with uncertainty represented by conservative root-mean-square (RMS) margins of error (MoE). Average time spent per day (among participants) was also compared between men and women, with uncertainty summarised using RMS relative standard errors (RSE). Visual inference was applied: differences were judged clear when error bars did not overlap, and uncertain when they did.
+
+```{r q2}
+#| code-fold: true
+
+q2_prop_gen <- combine_table_2022 |>
+  filter(main_activity == "Social and community interaction",
+         sex %in% c("Males","Females")) |>
+  group_by(age_group, sex, sub_activity) |>
+  summarise(
+    prop = mean(participant_proportion, na.rm = TRUE),
+    moe  = rms(margin_of_error),
+    .groups = "drop"
+  ) |>
+  mutate(
+    age_group = fct_relevel(age_group, gen_order),
+    sub_activity = str_wrap(sub_activity, 22),
+    ymin = pmax(0, prop - moe),
+    ymax = pmin(100, prop + moe)
+  )
+```
+
+```{r q2 plot}
+#| code-fold: true
+#| label: fig-q2-participation-by-gen
+#| fig-cap: "Participation in Social & Community Interaction sub-activities by sex and generation (2022). Bars show participation proportion with ±RMS MoE."
+#| fig-width: 10
+#| fig-height: 12
+
+ggplot(q2_prop_gen, aes(x = sub_activity, 
+                        y = prop, 
+                        fill = sex)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_errorbar(aes(ymin = ymin, 
+                    ymax = ymax),
+                position = position_dodge(width = 0.8),
+                width = 0.22, linewidth = 0.5) +
+  facet_wrap(~ age_group, ncol = 2) +
+  labs(title = "Gender Differences in Participation by Generation",
+       subtitle = "Social & Community Interaction sub-activities, 2022",
+       x = NULL, y = "Participation rate (%)", fill = NULL) +
+  theme_minimal() +
+  theme(legend.position = "top",
+        axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+Participation in social and community interaction sub-activities is generally higher for women than men, but most of these gaps are statistically uncertain because error bars overlap. The one clearer exception is social interaction, where women’s participation is significantly higher among Generation X and Baby Boomers. For other sub-activities such as social and community interaction, apparent gender differences are modest and not statistically reliable.
+
+However, to fully understand gendered patterns of time use it is important to also examine the duration of time spent when participating.
+
+```{r q2 time}
+#| code-fold: true
+
+q2_time <- combine_table_2022 |>
+  filter(main_activity == "Social and community interaction",
+         sex %in% c("Males", "Females")) |>
+  group_by(age_group, sex, sub_activity) |>
+  summarise(
+    mins = mean(avg_time_perday_participant_min),
+    rse  = rms(par_rse_percent),   # conservative RMS of RSE
+    .groups = "drop"
+  ) |>
+  mutate(
+    age_group = fct_relevel(age_group, gen_order),
+    sub_activity = str_wrap(sub_activity, 22),
+    ymin = pmax(0, mins - (mins * rse / 100)),
+    ymax = mins + (mins * rse / 100)
+  )
+```
+
+```{r q2 time plot}
+#| code-fold: true
+#| label: fig-q2-duration
+#| fig-cap: "Average daily minutes spent (among participants) on Social & Community Interaction sub-activities by sex and generation (2022). Bars show means with ±RMS RSE-based error. Estimates with RSE > 25% are considered unreliable."
+#| fig-width: 10
+#| fig-height: 12
+
+ggplot(q2_time, aes(x = sub_activity, 
+                    y = mins, 
+                    fill = sex)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_errorbar(aes(ymin = ymin, 
+                    ymax = ymax),
+                position = position_dodge(width = 0.8),
+                width = 0.22, linewidth = 0.5) +
+  geom_text(
+    data = filter(q2_time, rse > 25),
+    aes(label = "RSE > 25%"),
+    vjust = -2, size = 3, colour = "red"
+  ) +
+  facet_wrap(~ age_group, ncol = 2) +
+  labs(
+    title = "Gender Differences in Time Spent by Generation",
+    subtitle = "Average daily minutes among participants, Social & Community Interaction activities (2022)",
+    x = NULL, 
+    y = "Minutes per day", 
+    fill = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    axis.text.x = element_text(angle = 30, hjust = 1)
+  )
+```
+
+Among those who do participate, men and women spend broadly similar amounts of time per day on most social and community interaction activities. Clearer differences appear in some areas: men spend longer on eating and drinking out across all generations, while women spend slightly more time on social interaction in younger cohorts (Gen Z and Millennials). For other activities, such as travel related to social activities, averages are similar. However, many of these gaps are modest relative to uncertainty, and some estimates (e.g., religious or cultural practices) have RSE > 25%, making them unreliable for firm interpretation.
+
+**Conclusion**
+
+Overall, the participation (@fig-q2-participation-by-gen) and time-use plots (@fig-q2-duration) show that gender differences in social and community interaction arise mainly from participation rates rather than time spent. Women are more likely to participate, especially in social interaction for Gen X and Baby Boomers. Among participants, time spent is broadly similar, with men tending to spend more time on eating and drinking out (except Gen Z, where women spend slightly longer) and women spending more time on social interaction in younger cohorts. Most other differences are modest and uncertain.
+
+### Exercise, Sport, and Outdoor Activity by Generation
+
+**Does aging affect how much people engage in sports and outdoor activities?**
+
+The analysis focused on the Recreation & leisure sub-activity Exercise, sport and outdoor activity. For each generation, participation proportions were summarised separately for males and females, with uncertainty represented by conservative root-mean-square (RMS) margins of error (MoE). Visual inference was applied: differences were judged clear when error bars did not overlap, and uncertain when they did.
+
+```{r q3}
+#| code-fold: true
+
+# Persons-only, Sports & Outdoor Activities
+q3_prop_gen <- combine_table_2022 |>
+  filter(main_activity == "Recreation and leisure",
+         sub_activity == "Exercise, sport and outdoor activity") |>
+  group_by(age_group, sex) |>
+  summarise(
+    prop = mean(participant_proportion, na.rm = TRUE),
+    moe  = rms(margin_of_error),  
+    .groups = "drop"
+  ) |>
+  mutate(
+    age_group = fct_relevel(age_group, gen_order),
+    ymin = pmax(0, prop - moe),
+    ymax = pmin(100, prop + moe)
+  )
+```
+
+```{r q3 plot}
+#| code-fold: true
+#| label: fig-q3-participation-by-gen
+#| fig-cap: "Participation in Exercise, Sport and Outdoor Activity by sex and generation (2022). Bars show participation proportion with ±RMS MoE."
+#| fig-width: 8
+#| fig-height: 5
+
+ggplot(q3_prop_gen, aes(x = age_group, 
+                        y = prop, 
+                        fill = sex)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_errorbar(aes(ymin = ymin, 
+                    ymax = ymax),
+                position = position_dodge(width = 0.8),
+                width = 0.22, linewidth = 0.5) +
+  scale_x_discrete(labels = gen_labels) +
+  labs(title = "Generational Differences in Exercise, Sport and Outdoor Activity",
+       subtitle = "Participation by sex, 2022",
+       x = NULL, y = "Participation rate (%)", fill = NULL) +
+  theme_minimal() +
+  theme(legend.position = "top",
+        axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+The plot shows that participation in exercise, sport and outdoor activity varies across generations, but not in a simple age-driven decline. Gen Z record relatively high participation, which drops among Millennials and Gen X, likely reflecting reduced free time due to work and family commitments. Rates then increase again among Baby Boomers and the Interwar generation, who may have more discretionary time. Within each generation, males and females participate at broadly similar rates, with sex gaps statistically uncertain due to overlapping error bars.
+
+**Conclusion**
+
+From @fig-q3-participation-by-gen, the evidence suggests that aging alone does not consistently reduce participation in sports and outdoor activities. Engagement follows a U-shaped pattern: highest in the youngest and oldest cohorts and lower in mid-adulthood, reflecting life-stage and time availability rather than biological age. Sex differences are modest and uncertain, making generation (life stage) the stronger influence.
+
+## Historical Changes in Australian Time Use
+
+### Historical Data Preparation
+
+1.  All tables in `ABS_leisure_historic.xlsx` were reviewed to determine their relevance to the research question. Tables 1 were selected as the primary sources for analysis.
+2.  Read data from each Excel worksheet into R and inspect the structure of the imported tables.
+
+```{r load-in}
+#| code-fold: true
+#| output: false
+
+# Load-in data from each selected table
+t1_historic <- read_excel(here::here("data","ABS_leisure_historic.xlsx"), 
+                          sheet = "Table 1", 
+                          skip = 4, 
+                          col_names = TRUE) |>
+  rename(activity = 1)
+
+# Inspect data structure
+glimpse(t1_historic)
+```
+
+3.  Tidy `t1_historic` (adapting Q2(b)–IDA Step 3) to a long format with five fields: `main_activity`, `sub_activity`, `year`, `sex`, and `value`.
+
+```{r t1_historic tidy}
+#| code-fold: true
+
+# ABS main categories (for rolling sub-activities under their parent)
+abs_main_cats <- c(
+  "Personal care","Employment related","Education","Domestic activities",
+  "Child care","Purchasing goods and services","Voluntary work and care",
+  "Social and community interaction","Recreation and leisure",
+  "Undescribed","All activities"
+)
+
+# 1) Build proper headers: "activity", then "year - sex"
+sex_row_hist <- t1_historic[1, -1] |> unlist() |> as.character()
+raw_years     <- colnames(t1_historic)[-1]
+colnames(t1_historic) <- c("activity", paste(raw_years, sex_row_hist, sep = " - "))
+
+# 2) Drop the sex-label row
+t1_historic <- t1_historic[-1, ]
+
+# 3) Tidy to long table
+t1_historic_tidy <- t1_historic |>
+  filter(!is.na(activity), activity != "Concordance of activities") |>
+  rename(sub_activity = activity) |>
+  mutate(
+    main_activity = if_else(sub_activity %in% abs_main_cats,
+                            sub_activity, NA_character_)
+  ) |>
+  tidyr::fill(main_activity, .direction = "down") |>
+  pivot_longer(
+    cols = -c(sub_activity, main_activity),
+    names_to = "year_sex", values_to = "value_raw"
+  ) |>
+  separate(year_sex, into = c("year", "sex"), sep = " - ", fill = "right") |>
+  mutate(year = if_else(grepl("^\\.\\.+", year), NA_character_, year)) |>
+  tidyr::fill(year, .direction = "down") |>
+  mutate(
+    sex   = str_trim(sex),
+    value = case_when(
+      str_trim(as.character(value_raw)) %in% c("", "-", "–", "—", "NA", "N/A", "na") ~ NA_character_,
+      TRUE ~ as.character(value_raw)
+    )
+  ) |>
+  select(main_activity, sub_activity, year, sex, value) |>
+  filter(!str_detect(tolower(sub_activity), "all|commonwealth"))
+```
+
+4. Rename `value` to `mins_perday` and convert `HH:MM` durations to numeric minutes
+
+```{r prepare}
+#| code-fold: true
+
+t1_historic_mins <- t1_historic_tidy |>
+  rename(mins_perday = value) |>
+  mutate(mins_perday = period_to_seconds(hm(mins_perday)) / 60)
+```
+
+5. Check missingness and confirm final data structure
+
+```{r check missingness and structure}
+#| code-fold: true
+
+# Visualise missingness
+vis_miss(t1_historic_mins)
+
+# Inspect data structure
+glimpse(t1_historic_mins)
+```
+
+### Analysis of Main Daily Activities Over Time
+
+The analysis used ABS historic time-use data (1992, 1997, 2006). Average daily minutes were summarised for each main activity by sex and survey year. Results were visualised using line plots, with facets to display either main activities or sub-activities within a category. Visual inference was applied: changes were interpreted as meaningful when consistent trends appeared across years, and uncertain when lines were flat or crossed.
+
+```{r plot1 mian_act}
+#| code-fold: true
+#| label: fig-timeuse-main
+#| fig-cap: "Average minutes per day spent on main activities in Australia, 1992–2006, by sex. Lines show the mean daily time allocated to each ABS main activity, separately for males, females, and the total population."
+#| fig-width: 12
+#| fig-height: 5
+
+p1 <- t1_historic_mins |>
+  group_by(main_activity, year, sex) |>
+  summarise(mean_mins = mean(mins_perday, na.rm = TRUE), .groups = "drop") |>
+  ggplot(aes(x = year, 
+             y = mean_mins, 
+             colour = sex, 
+             group = sex)) + 
+  geom_line(linewidth = 1) +
+  geom_point() +
+  facet_wrap(~ main_activity, scales = "free_y") +
+  labs(
+    x = "Survey Year",
+    y = "Average minutes per day",
+    colour = "Sex",
+    title = "Time use in Australia (1992–2022): Main activity by sex"
+  ) +
+  theme_minimal()
+
+p1
+```
+
+**Changes in Australians’ time use, 1992–2006: Key observations from** @fig-timeuse-main
+
+- Personal care: Largest share of time; stable with minor variation, reflecting biological needs.
+- Employment-related activities: Higher for men, small increase for women, narrowing the gender gap.
+- Domestic activities: Higher for women but declined slightly; men’s contribution rose, showing slow convergence in unpaid labour.
+- Child care: Increased for both sexes, consistent with childcare reforms and dual-income households.
+- Education: U-shaped pattern; dip in 1997, recovery in 2006 with higher education expansion.
+- Recreation and leisure: Peaked in 1997, declined by 2006, foreshadowing growth of digital leisure.
+- Social and community interaction: Sharp fall after 1992, reflecting declines in civic and community participation.
+- Voluntary work and care: Rose in 1997 then fell by 2006.
+- Purchasing goods and services & Undescribed: Small or negligible changes.
+
+Overall, from 1992 to 2006, Australians’ time use remained anchored in personal care, but shifts emerged in work, care, and leisure. Gender gaps narrowed slightly as women increased paid work and men modestly expanded domestic roles. Child care and education gained importance with policy reforms and higher education expansion, while traditional leisure and civic engagement declined, reflecting the early influence of digital technologies and weakening community participation. These changes reflect broader social transformations of the 1990s–2000s, including dual-income households, education growth, and shifting patterns of social life.
+
+### Education Time Use Over Time
+
+Among the main activities, Education stands out with a clear U-shaped trend between 1992 and 2006, declining in 1997 before recovering in 2006. To better understand what drives this pattern, the analysis examines the underlying sub-activities within Education. Breaking this category down shows which forms of study or training contributed to the overall changes, and whether these patterns differed between males and females.
+
+```{r plot2 edu}
+#| code-fold: true
+#| label: fig-timeuse-edu
+#| fig-cap: "Education sub-activities by sex, Australia 1992–2006."
+#| fig-width: 12
+#| fig-height: 5
+
+# Filter to Education only
+edu_sub <- t1_historic_mins %>%
+  filter(main_activity == "Education",
+         sub_activity != main_activity)
+
+# Plot: sub-activities faceted, coloured by sex
+p_edu_sex <- ggplot(edu_sub, aes(x = year, 
+                                 y = mins_perday,
+                                 colour = sex, 
+                                 group = sex)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  facet_wrap(~ sub_activity,
+             scales = "free_y",
+             labeller = label_wrap_gen(width = 25)) +   
+  labs(
+    title = "Education sub-activities by sex (1992–2006)",
+    x = "Survey Year",
+    y = "Average minutes per day",
+    colour = "Sex"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    strip.text = element_text(size = 10)  
+  )
+
+p_edu_sex
+```
+**Key Observations (Education sub-activities, 1992–2006)** @fig-timeuse-edu
+
+- Educational courses (excluding job training): The dominant sub-activity. Clear dip in 1997 followed by recovery in 2006, driving the U-shaped pattern seen in the main activity.
+- Homework/study/research: Fairly stable, with females spending slightly more time than males across all years.
+- Associated travel: Mirrors the course pattern, dipping in 1997 and rising again in 2006, indicating travel is tied to course attendance.
+- Job-related training: Minor overall, but with a small rise in 1997 for females before returning to earlier levels.
+- Breaks at place of education & Other: Negligible, with little contribution to overall trends.
+
+Education’s U-shaped trajectory between 1992 and 2006 is explained almost entirely by fluctuations in attendance at courses and related travel, while study time remained steady and job-related training played only a small role. Sex differences were minor, with females consistently spending slightly more time on study. These results suggest that the mid-1990s dip reflects structural factors in education participation rather than behavioural shifts in how individuals used their study time.
+
+### Conclusion
+
+Between 1992 and 2006, Australians’ daily routines remained anchored in personal care, but important shifts occurred in work, care, leisure, and education. Gender gaps narrowed slightly as women increased their participation in paid employment and men modestly expanded their share of domestic activities, while child care grew in prominence in line with dual-income family structures and childcare reforms. Leisure peaked in the mid-1990s but declined by 2006, and social and community interaction fell sharply, reflecting weakening civic participation and the early influence of digital technologies on how people spent their free time. Education showed a distinctive U-shaped trajectory, explained almost entirely by fluctuations in course attendance and associated travel, while study time remained steady and job-related training played only a minor role. Together, these results suggest that although the broad structure of time use was stable, Australians adapted their daily activities in response to wider social transformations of the 1990s–2000s, including rising female labour-force participation, expansion of higher education, dual-income households, and changing forms of leisure and community engagement.
+
+## Resources
+
+The materials used for this report are:
+
+Wickham H, Averick M, Bryan J, Chang W, McGowan LD, François R,
+  Grolemund G, Hayes A, Henry L, Hester J, Kuhn M, Pedersen TL,
+  Miller E, Bache SM, Müller K, Ooms J, Robinson D, Seidel DP, Spinu
+  V, Takahashi K, Vaughan D, Wilke C, Woo K, Yutani H (2019).
+  "Welcome to the tidyverse." _Journal of Open Source Software_,
+  *4*(43), 1686. [doi:10.21105/joss.01686](https://doi.org/10.21105/joss.01686).
+
+Wickham, H., & Bryan, J. (2023). readxl: Read Excel Files. R package version 1.4.3. <https://CRAN.R-project.org/package=readxl>
+
+Müller, K. (2020). here: A Simpler Way to Find Your Files. R package version 1.0.1. <https://CRAN.R-project.org/package=here>
+
+Tierney N, Cook D (2023). “Expanding Tidy Data Principles to Facilitate Missing Data Exploration, Visualization and
+  Assessment of Imputations.” _Journal of Statistical Software_, *105*(7), 1-31. doi:10.18637/jss.v105.i07
+  <https://doi.org/10.18637/jss.v105.i07>.
+
+Garrett Grolemund, Hadley Wickham (2011). Dates and Times Made Easy with lubridate. Journal of Statistical Software,
+  40(3), 1-25. URL https://www.jstatsoft.org/v40/i03/.
+  
+ABC News. (2025, July 14). *Australians, especially men, are reading less than ever before.* Australian Broadcasting Corporation. <https://www.abc.net.au/news/2025-07-14/australians-especially-men-are-reading-less-than-ever-before/105422070>
+
+Evershed, N. (2025, August 17). *Have men really stopped reading? We take a deeper dive into the data. The Guardian.* <https://www.theguardian.com/news/2025/aug/17/men-books-reading-rates-data-statistics-women-children-australia>
+
+Jack, B. (2025, July 21). *Young men have stopped reading books – and these are the reasons why. The Age.* <https://www.theage.com.au/culture/books/young-men-have-stopped-reading-books-and-these-are-the-reasons-why-20250717-p5mfsx.html>
+
+Australian Bureau of Statistics. (2024, April 16). *How Australian generations spent their time on recreation and leisure* [Article]. Australian Bureau of Statistics. <https://www.abs.gov.au/articles/how-australian-generations-spent-their-time-recreation-and-leisure#data-downloads>
+
+### AI acknowledgment
+
+I used ChatGPT(https://chat.openai.com/) to provide R coding guidance that were used for data manipulating for desired result and visualization including fixing code, then check grammar and vocabulary error. The final output is authored by me, critically reviewed for accuracy, and represents my own thoughts. I take full responsibility for the final content.
+
